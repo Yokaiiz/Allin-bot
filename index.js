@@ -11,9 +11,8 @@ const {
     StringSelectMenuBuilder,
     GuildMembers
 } = require("discord.js");
-const {
-
-} = require("./commands.js")
+const { ping } = require("./commands.js");
+const { CommandContext } = require("./commandContext.js");
 
 const { EmbedBuilder } = require("@discordjs/builders");
 const {
@@ -33,14 +32,27 @@ const client = new Client({
     partials: [Partials.Channel],
 });
 
-const commands = [].map(cmd => cmd.toJSON());
+// this holds all the data for the commands that are sent to the Discord API 
+const commandDefinitions = [
+    new SlashCommandBuilder()
+        .setName('ping')
+        .setDescription('Replies with Pong!')
+        .toJSON()
+];
+
+const commandHandlers = {
+    ping: { // this is the command name, it's gotta be in lowercase and match the command name in the Discord command definitions!
+        execute: ping, // this is what it executes when the command is called
+        cooldown: 1000 // this is in milliseconds, so it converts to 1 second!
+    }
+};
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 async function deployCommands() {
     try {
         console.log("/ Deploying commands...");
-        await rest.put(Routes.applicationCommand(client.user.id), {body: commands});
-        console.log('/ Commands deplyed.');
+        await rest.put(Routes.applicationCommands(client.application.id), {body: commandDefinitions});
+        console.log('/ Commands deployed.');
     } catch (error) {
         console.log('failed to deploy commands:', error);
     }
@@ -48,13 +60,8 @@ async function deployCommands() {
 
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
-        const cmd = interaction.commandName;
-
         try {
-            switch (cmd) {
-                default:
-                    return interaction.reply({content: 'command unknown.', ephemeral: true});
-            }
+            await handleCommand(interaction, CommandContext, commandHandlers);
         } catch (error) {
             console.log('Error handling command:', error);
         }
@@ -69,5 +76,38 @@ client.on('ready', async () => {
         console.error('Command deploy failed', error);
     }
 });
+
+const cooldowns = new Map(); // store it OUTSIDE a function as a global so we avoid re-creating it on every call
+async function handleCommand(interaction, ctx = CommandContext, commandHandlers) {
+    const commandName = interaction.commandName;
+    const handler = commandHandlers[commandName];
+    
+    if (!handler) {
+        return interaction.reply({ content: 'Command not found!', ephemeral: true });
+    }
+
+    const cooldown = handler.cooldown || 1000; // this is in milliseconds, so it converts to 1 second!
+    const userId = interaction.user.id;
+    const cooldownKey = `${userId}-${commandName}`;
+    
+    const now = Date.now();
+    const lastUsed = cooldowns.get(cooldownKey) || 0;
+    const timeSinceLastUsed = now - lastUsed;
+
+    if (timeSinceLastUsed < cooldown) {
+        const remainingTime = ((cooldown - timeSinceLastUsed) / 1000).toFixed(1);
+        const context = new ctx(interaction);
+        return interaction.reply({ 
+            content: `${context.formatName()}, you're on cooldown! Please wait ${remainingTime} more seconds.`, 
+            ephemeral: true 
+        });
+    }
+    
+    cooldowns.set(cooldownKey, now);
+    
+    const context = new ctx(interaction);
+    await handler.execute(context);
+}
+
 
 client.login(TOKEN);
