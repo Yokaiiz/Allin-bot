@@ -11,7 +11,10 @@ const {
     StringSelectMenuBuilder,
     GuildMembers
 } = require("discord.js");
-const { ping } = require("./commands.js");
+const {
+    ping,
+    help,
+} = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 
 const { EmbedBuilder } = require("@discordjs/builders");
@@ -37,14 +40,22 @@ const commandDefinitions = [
     new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Replies with Pong!')
-        .toJSON()
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Provides helpful information about the bot.')
+        .toJSON(),
 ];
 
 const commandHandlers = {
     ping: { // this is the command name, it's gotta be in lowercase and match the command name in the Discord command definitions!
         execute: ping, // this is what it executes when the command is called
         cooldown: 1000 // this is in milliseconds, so it converts to 1 second!
-    }
+    },
+    help: {
+        execute: help,
+        cooldown: 1000
+    },
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
