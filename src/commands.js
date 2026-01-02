@@ -409,6 +409,33 @@ async function timeout(context) {
     }
 }
 
+async function ban(context) {
+    const targetUser = context.options.getUser('target');
+    const reason = context.options.getString('reason') || 'No reason provided';
+    const executorMember = context.guild.members.cache.get(context.user.id);
+    if (!executorMember.permissions.has(
+        PermissionFlagsBits.BanMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'You do not have permission to ban members or do not have admin.', ephemeral: true });
+    }
+    if (!context.guild.members.me.permissions.has(
+        PermissionFlagsBits.BanMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'I do not have permission to ban members or do not have admin.', ephemeral: true });
+    }
+    try {
+        const memberToBan = await context.guild.members.fetch(targetUser.id);
+        await memberToBan.ban({ reason });
+        return context.reply({ content: `Successfully banned user ${targetUser.tag}. Reason: ${reason}` });
+    }
+    catch (error) {
+        console.error('Error banning member:', error);
+        return context.reply({ content: 'There was an error banning the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+    }
+}
+
 
 module.exports = {
     ping,
@@ -421,4 +448,5 @@ module.exports = {
     gamble,
     daily,
     timeout,
+    ban,
 };

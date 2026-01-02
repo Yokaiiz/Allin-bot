@@ -22,6 +22,7 @@ const {
     gamble,
     daily,
     timeout,
+    ban,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -141,6 +142,23 @@ const commandDefinitions = [
             .setRequired(false)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Bans a user from the server.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user to ban.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('reason')
+            .setDescription('Reason for the ban.')
+            .setRequired(false)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -182,6 +200,10 @@ const commandHandlers = {
     },
     timeout: {
         execute: timeout,
+        cooldown: 1000
+    },
+    ban: {
+        execute: ban,
         cooldown: 1000
     },
 };
