@@ -11,6 +11,10 @@ async function ping(context) {
 }
 
 async function help(context) {
+    
+    const db = await getDBInstance();
+    await db.set('users', { ...db.get('users'), [context.user.id]: { id: context.user.id, name: context.user.username } });
+
     const helpButton = new ButtonBuilder()
     .setLabel('Support server')
     .setStyle(ButtonStyle.Link)

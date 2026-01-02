@@ -57,8 +57,16 @@ async function autoRegUser(userId) {
     await db.set('users', users);
 }
 
+async function ensureUserRegistered(userId) {
+    const users = db.get('users') || {};
+    users[context.user.id] = users[context.user.id] || {};
+    users[context.user.id][key] = val;
+    await db.set('users', users);
+}
+
 module.exports = {
     LowDB,
     getDBInstance,
     autoRegUser,
+    ensureUserRegistered,
 };
