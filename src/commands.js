@@ -12,9 +12,6 @@ async function ping(context) {
 
 async function help(context) {
     
-    const db = await getDBInstance();
-    await db.set('users', { ...db.get('users'), [context.user.id]: { id: context.user.id, name: context.user.username } });
-
     const helpButton = new ButtonBuilder()
     .setLabel('Support server')
     .setStyle(ButtonStyle.Link)
@@ -87,7 +84,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.'
                 }
             )
             .setTimestamp();
