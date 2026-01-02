@@ -40,10 +40,12 @@ const commandDefinitions = [
     new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Replies with Pong!')
+        .setContexts(0, 1, 2)
         .toJSON(),
     new SlashCommandBuilder()
         .setName('help')
         .setDescription('Provides helpful information about the bot.')
+        .setContexts(0, 1, 2)
         .toJSON(),
 ];
 

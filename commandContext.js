@@ -20,6 +20,10 @@ class CommandContext {
         return this.interaction.followUp(options);
     }
 
+    editReply(options) {
+        return this.interaction.editReply(options);
+    }
+
     formatName(name) {
         return `***${this.user.username}***`;
     }
