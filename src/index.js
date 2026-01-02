@@ -21,6 +21,7 @@ const {
     beg,
     gamble,
     daily,
+    timeout,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -117,6 +118,29 @@ const commandDefinitions = [
         .setDescription('Claim your daily reward.')
         .setContexts(0, 1, 2)
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('timeout')
+        .setDescription('Timeout a user for a specified duration.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user to timeout.')
+            .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option
+            .setName('duration')
+            .setDescription('Duration of the timeout in minutes.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('reason')
+            .setDescription('Reason for the timeout.')
+            .setRequired(false)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -155,6 +179,10 @@ const commandHandlers = {
     daily: {
         execute: daily,
         cooldown: 86400000 // 24 hours
+    },
+    timeout: {
+        execute: timeout,
+        cooldown: 1000
     },
 };
 

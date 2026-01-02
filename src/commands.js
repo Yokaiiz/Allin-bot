@@ -80,7 +80,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.'
                 },
                 {
                     name: 'Economy Commands',
@@ -378,6 +378,38 @@ async function daily(context) {
 
     await context.reply({ embeds: [dailyEmbed] });
 }
+
+async function timeout(context) {
+    const targetUser = context.options.getUser('target');
+    const duration = context.options.getInteger('duration');
+    const reason = context.options.getString('reason') || 'No reason provided';
+    const executorMember = context.guild.members.cache.get(context.user.id);
+
+    if (!executorMember.permissions.has(
+        PermissionFlagsBits.ModerateMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'You do not have permission to timeout members or do not have admin.', ephemeral: true });
+    }
+
+    if (!context.guild.members.me.permissions.has(
+        PermissionFlagsBits.ModerateMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'I do not have permission to timeout members or do not have admin.', ephemeral: true });
+    }
+
+    try {
+        const memberToTimeout = await context.guild.members.fetch(targetUser.id);
+        await memberToTimeout.timeout(duration * 60 * 1000, reason);
+        return context.reply({ content: `Successfully timed out user ${targetUser.tag} for ${duration} minutes. Reason: ${reason}` });
+    } catch (error) {
+        console.error('Error timing out member:', error);
+        return context.reply({ content: 'There was an error timing out the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+    }
+}
+
+
 module.exports = {
     ping,
     help,
@@ -388,4 +420,5 @@ module.exports = {
     beg,
     gamble,
     daily,
+    timeout,
 };
