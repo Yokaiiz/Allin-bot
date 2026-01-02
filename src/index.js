@@ -20,6 +20,7 @@ const {
     profile,
     beg,
     gamble,
+    daily,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -111,6 +112,11 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('daily')
+        .setDescription('Claim your daily reward.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -145,6 +151,10 @@ const commandHandlers = {
     gamble: {
         execute: gamble,
         cooldown: 5000
+    },
+    daily: {
+        execute: daily,
+        cooldown: 86400000 // 24 hours
     },
 };
 

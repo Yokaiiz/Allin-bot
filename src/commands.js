@@ -223,6 +223,8 @@ async function profile(context) {
     const users = db.get('users') || {};
     const userData = users[context.user.id] || {};
     const currency = userData.currency || 0;
+    const lastDaily = userData.lastDaily || null;
+    const dailyCount = userData.dailyCount || 0;
 
     db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: userData.currency || 0}});
 
@@ -231,7 +233,9 @@ async function profile(context) {
     .setColor('DarkVividPink')
     .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
     .addFields(
-        { name: 'Currency', value: `$${currency}`, inline: true },
+        { name: 'Currency', value: `$${currency}`, inline: false },
+        { name: 'Total Dailies Claimed', value: `${dailyCount}`, inline: false },
+        { name: 'Last Daily Claim', value: lastDaily ? new Date(lastDaily).toUTCString() : 'Never', inline: false },
     )
     .setTimestamp();
 
@@ -337,6 +341,46 @@ async function gamble(context) {
     await context.reply({ embeds: [gambleEmbed] });
 }
 
+async function daily(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    let currency = userData.currency || 0;
+    let lastDaily = userData.lastDaily ? new Date(userData.lastDaily) : null;
+    const now = new Date();
+
+    if (lastDaily) {
+        const timeDiff = now - lastDaily;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        if (hoursDiff < 24) {
+            const nextClaim = new Date(lastDaily.getTime() + 24 * 60 * 60 * 1000);
+            return context.reply({ content: `You have already claimed your daily reward. You can claim again on ${nextClaim.toUTCString()}.`, ephemeral: true });
+        }
+    }
+
+    // Track total number of dailies claimed and scale reward accordingly
+    const prevDailyCount = userData.dailyCount || 0;
+    const dailyCount = prevDailyCount + 1;
+
+    // Formula: base 500 + 50 per claimed daily, capped to prevent runaway values
+    const baseDaily = 500;
+    const perClaim = 50;
+    const maxDaily = 50000;
+    let dailyAmount = baseDaily + (dailyCount * perClaim);
+    if (dailyAmount > maxDaily) dailyAmount = maxDaily;
+
+    currency += dailyAmount;
+    db.set('users', { ...users, [context.user.id]: { ...userData, id: context.user.id, name: context.user.username, currency, lastDaily: now.toISOString(), dailyCount } });
+
+    const dailyEmbed = new EmbedBuilder()
+        .setTitle('Daily Reward Claimed')
+        .setColor('DarkVividPink')
+        .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+        .setDescription(`You have claimed your daily reward #${dailyCount} and received **${dailyAmount}** dollars!\nYou now have a total of **${currency}** dollars.`)
+        .setTimestamp();
+
+    await context.reply({ embeds: [dailyEmbed] });
+}
 module.exports = {
     ping,
     help,
@@ -346,4 +390,5 @@ module.exports = {
     profile,
     beg,
     gamble,
+    daily,
 };
