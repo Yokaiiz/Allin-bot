@@ -21,6 +21,9 @@ const {
     beg,
     gamble,
     daily,
+    kiss,
+    hug,
+    cuddle,
     timeout,
     ban,
 } = require("./commands.js");
@@ -115,6 +118,24 @@ const commandDefinitions = [
         )
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('kiss')
+        .setDescription('Kiss someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to kiss').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('hug')
+        .setDescription('Hug someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to hug').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('cuddle')
+        .setDescription('Cuddle someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to cuddle').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('daily')
         .setDescription('Claim your daily reward.')
         .setContexts(0, 1, 2)
@@ -193,6 +214,18 @@ const commandHandlers = {
     gamble: {
         execute: gamble,
         cooldown: 5000
+    },
+    kiss: {
+        execute: kiss,
+        cooldown: 3000
+    },
+    hug: {
+        execute: hug,
+        cooldown: 3000
+    },
+    cuddle: {
+        execute: cuddle,
+        cooldown: 3000
     },
     daily: {
         execute: daily,

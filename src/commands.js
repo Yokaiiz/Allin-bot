@@ -1,9 +1,79 @@
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits } = require("discord.js");
 const { getDBInstance } = require('./db.js');
+const roleplayGifs = require('./roleplay_gifs.json');
 
 
 
 const apid = ["292385626773258240", "961370035555811388"]
+
+// Fetch anime GIF from Tenor (Node 18+ has global fetch). Falls back to null on error.
+async function fetchAnimeGif(term) {
+    const key = process.env.TENOR_API_KEY;
+    if (!key) return null;
+    try {
+        const q = encodeURIComponent(`anime ${term}`);
+        const url = `https://g.tenor.com/v1/search?q=${q}&key=${key}&limit=20&media_filter=minimal`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && Array.isArray(data.results) && data.results.length > 0) {
+            const pick = data.results[Math.floor(Math.random() * data.results.length)];
+            // Tenor v1 returns a `media` array with different formats
+            if (pick.media && pick.media[0]) {
+                const media = pick.media[0];
+                if (media.gif && media.gif.url) return media.gif.url;
+                if (media.mediumgif && media.mediumgif.url) return media.mediumgif.url;
+                if (media.tinygif && media.tinygif.url) return media.tinygif.url;
+            }
+            // fallback to result url if present
+            if (pick.url) return pick.url;
+        }
+    } catch (e) {
+        console.error('fetchAnimeGif error', e);
+    }
+    return null;
+}
+
+// Download a remote URL and return a Buffer, or null on failure
+async function downloadAsBuffer(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const ab = await res.arrayBuffer();
+        return Buffer.from(ab);
+    } catch (e) {
+        console.error('downloadAsBuffer error', e);
+        return null;
+    }
+}
+
+// Return a simple 3rd-person singular form for a verb (handles common cases)
+function toThirdPerson(verb) {
+    if (!verb || typeof verb !== 'string') return verb;
+    const lower = verb.toLowerCase();
+    // verbs ending with s, x, z, ch, sh -> add 'es' (kiss -> kisses)
+    if (/(s|x|z|ch|sh)$/.test(lower)) return verb + 'es';
+    // default: add 's'
+    return verb + 's';
+}
+
+// Return a gerund (present participle) form for common verbs (kiss -> kissing, hug -> hugging)
+function toGerund(verb) {
+    if (!verb || typeof verb !== 'string') return verb;
+    const lower = verb.toLowerCase();
+    // verbs ending with 'e' (but not 'ee') -> drop 'e' + ing (cuddle -> cuddling)
+    if (lower.endsWith('e') && !lower.endsWith('ee')) return verb.slice(0, -1) + 'ing';
+    // short verbs like 'hug' that follow CVC pattern should double final consonant
+    if (/^[a-zA-Z]{1,4}$/.test(verb)) {
+        const len = verb.length;
+        const last = lower[len - 1];
+        const prev = lower[len - 2] || '';
+        if (!/[aeiou]/.test(last) && /[aeiou]/.test(prev)) {
+            return verb + last + 'ing';
+        }
+    }
+    return verb + 'ing';
+}
 
 
 async function ping(context) {
@@ -85,6 +155,10 @@ async function help(context) {
                 {
                     name: 'Economy Commands',
                     value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.'
+                },
+                {
+                    name: 'Roleplay Commands',
+                    value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.'
                 }
             )
             .setTimestamp();
@@ -338,6 +412,201 @@ async function gamble(context) {
     await context.reply({ embeds: [gambleEmbed] });
 }
 
+async function _roleplayAction(context, actionKey, actionVerb, gifs) {
+    const targetUser = context.options.getUser('target');
+    const actor = context.user;
+
+    if (!targetUser) {
+        return context.reply({ content: `Who do you want to ${actionVerb}? Use the \`target\` option.`, ephemeral: true });
+    }
+
+    if (targetUser.bot) {
+        return context.reply({ content: `You can't ${actionVerb} a bot.`, ephemeral: true });
+    }
+
+    let gif = null;
+    try {
+        const fetched = await fetchAnimeGif(actionVerb);
+        if (fetched) gif = fetched;
+    } catch (e) {
+        // ignore and fallback
+    }
+    if (!gif) gif = gifs[Math.floor(Math.random() * gifs.length)];
+
+    // Update counts in DB: given/received for actor and target
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const actorData = users[actor.id] || {};
+    const targetData = users[targetUser.id] || {};
+
+    actorData.roleplay = actorData.roleplay || {};
+    targetData.roleplay = targetData.roleplay || {};
+
+    const givenKey = `${actionKey}Given`;
+    const receivedKey = `${actionKey}Received`;
+
+    actorData.roleplay[givenKey] = (actorData.roleplay[givenKey] || 0) + 1;
+    targetData.roleplay[receivedKey] = (targetData.roleplay[receivedKey] || 0) + 1;
+
+    // write both users back
+    await db.set('users', { ...users, [actor.id]: { ...actorData, id: actor.id, name: actor.username }, [targetUser.id]: { ...targetData, id: targetUser.id, name: targetUser.username } });
+
+    const actorGivenCount = actorData.roleplay[givenKey] || 0;
+    const targetReceivedCount = targetData.roleplay[receivedKey] || 0;
+
+    const verbThird = toThirdPerson(actionVerb);
+    const gerund = toGerund(actionVerb);
+    const filename = `${actionKey}_${actor.id}_${targetUser.id}_${Date.now()}.gif`;
+    const embedWithFields = new EmbedBuilder()
+        .setTitle(`${actor.username} ${verbThird} ${targetUser.username}`)
+        .setDescription(`${actor.username} ${gerund} ${targetUser.username}.`)
+        .setImage(`attachment://${filename}`)
+        .setColor('DarkVividPink')
+        .addFields(
+            { name: `${targetUser.username} - ${actionKey} received`, value: `${targetReceivedCount}`, inline: true }
+        )
+        .setTimestamp();
+
+    const recipButton = new ButtonBuilder()
+        .setCustomId(`rp_rec_${actionKey}_${actor.id}_${targetUser.id}`)
+        .setLabel('Reciprocate')
+        .setStyle(ButtonStyle.Primary);
+
+    const declineButton = new ButtonBuilder()
+        .setCustomId(`rp_dec_${actionKey}_${actor.id}_${targetUser.id}`)
+        .setLabel('Decline')
+        .setStyle(ButtonStyle.Secondary);
+
+    const actionRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
+
+    // Attempt to download the GIF and send as a buffer attachment to avoid CDN/embed loading issues
+    let fileToSend = null;
+    try {
+        const buf = await downloadAsBuffer(gif);
+        if (buf) fileToSend = { attachment: buf, name: filename };
+    } catch (e) {
+        fileToSend = null;
+    }
+    const files = fileToSend ? [fileToSend] : [{ attachment: gif, name: filename }];
+    await context.reply({ embeds: [embedWithFields], components: [actionRow], files });
+
+    const replyMessage = await context.interaction.fetchReply();
+
+    const validIds = new Set([`rp_rec_${actionKey}_${actor.id}_${targetUser.id}`, `rp_dec_${actionKey}_${actor.id}_${targetUser.id}`]);
+
+    const collector = replyMessage.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60000,
+        filter: (i) => validIds.has(i.customId)
+    });
+
+    collector.on('collect', async (interaction) => {
+        if (interaction.user.id !== targetUser.id) {
+            return interaction.reply({ content: 'Only the target can respond to this interaction.', ephemeral: true });
+        }
+
+        // Decline handling
+        if (interaction.customId.startsWith('rp_dec_')) {
+            recipButton.setDisabled(true);
+            declineButton.setDisabled(true);
+            const disabledRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
+
+            const declinedEmbed = new EmbedBuilder()
+                .setTitle(`${targetUser.username} declined to ${actionVerb}`)
+                .setDescription(`${targetUser.username} declined to ${actionVerb} ${actor.username}.`)
+                .setColor('Grey')
+                .addFields(
+                    { name: `${targetUser.username} - ${actionKey} received`, value: `${targetReceivedCount}`, inline: true }
+                )
+                .setTimestamp();
+
+            await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
+            collector.stop();
+            return;
+        }
+
+        // Reciprocation
+        if (interaction.customId.startsWith('rp_rec_')) {
+            const db2 = await getDBInstance();
+            const users2 = db2.get('users') || {};
+            const actorData2 = users2[actor.id] || {};
+            const targetData2 = users2[targetUser.id] || {};
+
+            actorData2.roleplay = actorData2.roleplay || {};
+            targetData2.roleplay = targetData2.roleplay || {};
+
+            const givenKeyActor = `${actionKey}Given`;
+            const receivedKeyActor = `${actionKey}Received`;
+
+            targetData2.roleplay[givenKeyActor] = (targetData2.roleplay[givenKeyActor] || 0) + 1;
+            actorData2.roleplay[receivedKeyActor] = (actorData2.roleplay[receivedKeyActor] || 0) + 1;
+
+            await db2.set('users', { ...users2, [actor.id]: { ...actorData2, id: actor.id, name: actor.username }, [targetUser.id]: { ...targetData2, id: targetUser.id, name: targetUser.username } });
+
+            let recipGif = null;
+            try {
+                const fetchedR = await fetchAnimeGif(actionVerb);
+                if (fetchedR) recipGif = fetchedR;
+            } catch (e) {}
+            if (!recipGif) recipGif = gifs[Math.floor(Math.random() * gifs.length)];
+
+            const actorGivenCount2 = actorData2.roleplay[givenKey] || 0;
+            const actorReceivedCount2 = actorData2.roleplay[receivedKey] || 0;
+            const targetGivenCount2 = targetData2.roleplay[givenKey] || 0;
+            const targetReceivedCount2 = targetData2.roleplay[receivedKey] || 0;
+
+            const recipFilename = `${actionKey}_${targetUser.id}_${actor.id}_${Date.now()}.gif`;
+            const recipVerbThird = toThirdPerson(actionVerb);
+            const recipEmbed = new EmbedBuilder()
+                .setTitle(`${targetUser.username} ${recipVerbThird} ${actor.username}`)
+                .setDescription(`${targetUser.username} ${gerund} ${actor.username} in return.`)
+                .setImage(`attachment://${recipFilename}`)
+                .setColor('DarkVividPink')
+                .addFields(
+                    { name: `${targetUser.username} - ${actionKey} given`, value: `${targetGivenCount2}`, inline: true }
+                )
+                .setTimestamp();
+
+            recipButton.setDisabled(true);
+            declineButton.setDisabled(true);
+            const disabledRow2 = new ActionRowBuilder().addComponents(recipButton, declineButton);
+
+            // Attempt to download recip GIF as buffer first
+            let recipFile = null;
+            try {
+                const buf2 = await downloadAsBuffer(recipGif);
+                if (buf2) recipFile = { attachment: buf2, name: recipFilename };
+            } catch (e) { recipFile = null; }
+            const recipFiles = recipFile ? [recipFile] : [{ attachment: recipGif, name: recipFilename }];
+            await interaction.update({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles });
+            collector.stop();
+        }
+    });
+
+    collector.on('end', async () => {
+        try {
+            recipButton.setDisabled(true);
+            declineButton.setDisabled(true);
+            const disabledRowEnd = new ActionRowBuilder().addComponents(recipButton, declineButton);
+            await context.editReply({ components: [disabledRowEnd] });
+        } catch (e) {
+            // ignore if message already updated elsewhere
+        }
+    });
+}
+
+async function kiss(context) {
+    return _roleplayAction(context, 'kisses', 'kiss', roleplayGifs.kiss);
+}
+
+async function hug(context) {
+    return _roleplayAction(context, 'hugs', 'hug', roleplayGifs.hug);
+}
+
+async function cuddle(context) {
+    return _roleplayAction(context, 'cuddles', 'cuddle', roleplayGifs.cuddle);
+}
+
 async function daily(context) {
     const db = await getDBInstance();
     const users = db.get('users') || {};
@@ -449,4 +718,7 @@ module.exports = {
     daily,
     timeout,
     ban,
+    kiss,
+    hug,
+    cuddle,
 };
