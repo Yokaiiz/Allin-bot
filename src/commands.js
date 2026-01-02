@@ -84,6 +84,10 @@ async function help(context) {
                 {
                     name: 'Moderation Commands',
                     value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.'
+                },
+                {
+                    name: 'Economy Commands',
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.'
                 }
             )
             .setTimestamp();
@@ -214,8 +218,124 @@ async function test_ali(context) {
     return context.reply({ content: `${key} set to ${val}`, ephemeral: false });
 }
 
+async function profile(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    const currency = userData.currency || 0;
 
+    db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: userData.currency || 0}});
 
+    const profileEmbed = new EmbedBuilder()
+    .setTitle(`${context.user.username}'s Profile`)
+    .setColor('DarkVividPink')
+    .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+    .addFields(
+        { name: 'Currency', value: `$${currency}`, inline: true },
+    )
+    .setTimestamp();
+
+    await context.reply({
+        embeds: [profileEmbed],
+    });
+}
+
+async function beg(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    let currency = userData.currency || 0;
+
+    const earned = Math.floor(Math.random() * 100) + 1; // Earn between 1 and 100
+    currency += earned;
+    db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: currency}});
+
+    const begEmbed = new EmbedBuilder()
+    .setTitle('Begging Results')
+    .setColor('DarkVividPink')
+    .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+    .setDescription(`You begged and received **${earned}** dollars!\nYou now have a total of **${currency}** dollars.`)
+    .setTimestamp();
+
+    await context.reply({
+        embeds: [begEmbed],
+    });
+}
+
+async function gamble(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    let currency = userData.currency || 0;
+    const betAmount = context.options.getInteger('amount');
+    if (!betAmount || betAmount <= 0) {
+        return context.reply({ content: 'Please provide a valid bet amount greater than 0.', ephemeral: true });
+    }
+
+    if (betAmount > currency) {
+        return context.reply({ content: `You cannot bet more than you have! You currently have $${currency}.`, ephemeral: true });
+    }
+
+    if (currency <= 0) {
+        await db.set('users', { ...users, [context.user.id]: { ...userData, id: context.user.id, name: context.user.username, currency: 0 } });
+        return context.reply({ content: 'You have no money to gamble. Please earn some currency first.', ephemeral: true });
+    }
+
+    const r = Math.random();
+    let multiplier = 0; // positive = win multiplier, 0 = lose bet, negative = lose multiple of bet
+    let tierName = '';
+
+    // Tiers (example probabilities):
+    // Jackpot: 1% -> 10x
+    // Big Win: 9% -> 3x
+    // Small Win: 40% -> 1x
+    // Loss: 35% -> lose your bet
+    // Double Loss: 15% -> lose double your bet
+    if (r < 0.01) {
+        multiplier = 10;
+        tierName = 'Jackpot';
+    } else if (r < 0.10) {
+        multiplier = 3;
+        tierName = 'Big Win';
+    } else if (r < 0.50) {
+        multiplier = 1;
+        tierName = 'Small Win';
+    } else if (r < 0.85) {
+        multiplier = 0;
+        tierName = 'Loss';
+    } else {
+        multiplier = -2; // lose double the bet
+        tierName = 'Double Loss';
+    }
+
+    let resultMessage = '';
+    if (multiplier > 0) {
+        const gain = betAmount * multiplier;
+        currency += gain;
+        resultMessage = `You hit **${tierName}**! You won $${gain} (x${multiplier}).`;
+    } else if (multiplier === 0) {
+        currency -= betAmount;
+        resultMessage = `You lost your bet of $${betAmount}.`;
+    } else {
+        const loss = Math.abs(multiplier) * betAmount;
+        currency -= loss;
+        resultMessage = `Oh no! **${tierName}** — you lost $${loss}.`;
+    }
+
+    // Ensure currency doesn't go negative below 0 (optional business rule)
+    if (currency < 0) currency = 0;
+
+    await db.set('users', { ...users, [context.user.id]: { ...userData, id: context.user.id, name: context.user.username, currency } });
+
+    const gambleEmbed = new EmbedBuilder()
+        .setTitle('Gambling Results')
+        .setColor('DarkVividPink')
+        .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+        .setDescription(`${resultMessage}\nYou now have a total of **${currency}** dollars.`)
+        .setTimestamp();
+
+    await context.reply({ embeds: [gambleEmbed] });
+}
 
 module.exports = {
     ping,
@@ -223,4 +343,7 @@ module.exports = {
     addrole,
     removerole,
     test_ali,
+    profile,
+    beg,
+    gamble,
 };

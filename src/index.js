@@ -17,6 +17,9 @@ const {
     addrole,
     removerole,
     test_ali,
+    profile,
+    beg,
+    gamble,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -87,6 +90,27 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('profile')
+        .setDescription('Displays your profile information.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('beg')
+        .setDescription('Beg for money.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('gamble')
+        .setDescription('Gamble your money.')
+        .setContexts(0, 1, 2)
+        .addIntegerOption(option =>
+            option
+            .setName('amount')
+            .setDescription('The amount of money to gamble.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -109,7 +133,19 @@ const commandHandlers = {
     test_ali: {
         execute: test_ali,
         cooldown: 1000
-    }
+    },
+    profile: {
+        execute: profile,
+        cooldown: 1000
+    },
+    beg: {
+        execute: beg,
+        cooldown: 5000
+    },
+    gamble: {
+        execute: gamble,
+        cooldown: 5000
+    },
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
