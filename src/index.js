@@ -19,7 +19,7 @@ const {
     test_ali,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
-const { getDBInstance } = require("./db.js");
+const { getDBInstance, autoRegUser } = require("./db.js");
 const { JSONFile } = require('lowdb/node');
 const path = require('path');
 
@@ -142,6 +142,7 @@ function registerClientEventHandlers(client) {
 
         if (!handler) return;
 
+        await autoRegUser(context.user.id); // auto register
         await handler.execute(context);
     });
 
@@ -200,6 +201,7 @@ async function handleCommand(interaction, ctx = CommandContext, commandHandlers)
     
     cooldowns.set(cooldownKey, now);
     
+    await autoRegUser(userId); // auto register
     const context = new ctx(interaction);
     await handler.execute(context);
 }

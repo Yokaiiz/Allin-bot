@@ -53,7 +53,10 @@ async function getDBInstance(adapter, defaultData = {}) {
 async function autoRegUser(userId) {
     const db = await getDBInstance();
     const users = db.get('users') || {};
-    users[userId] = { id: userId, name: 'Unknown', regDate: new Date().toISOString() };
+    if (users[userId]) {
+        return;
+    }
+    users[userId] = { id: userId, regDate: new Date().toISOString() };
     await db.set('users', users);
 }
 
