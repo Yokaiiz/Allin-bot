@@ -1,2 +1,8 @@
+
+# Secrets
 .env
+db.json
+
+
+## node_modules and db.json are not needed in the repo, they are only needed for the bot to run they are secret :rage:
 node_modules

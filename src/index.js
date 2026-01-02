@@ -16,8 +16,12 @@ const {
     help,
     addrole,
     removerole,
+    test_ali,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
+const { getDBInstance } = require("./db.js");
+const { JSONFile } = require('lowdb/node');
+const path = require('path');
 
 const { EmbedBuilder } = require("@discordjs/builders");
 const {
@@ -102,37 +106,71 @@ const commandHandlers = {
         execute: removerole,
         cooldown: 1000
     },
+    test_ali: {
+        execute: test_ali,
+        cooldown: 1000
+    }
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
+
+let handlersRegistered = false;
+function registerClientEventHandlers(client) {
+    if (handlersRegistered) return;
+    
+    client.on('interactionCreate', async (interaction) => {
+        if (interaction.isChatInputCommand()) {
+            try {
+                await handleCommand(interaction, CommandContext, commandHandlers);
+            } catch (error) {
+                console.log('Error handling command:', error);
+            }
+        }
+    });
+
+    client.on('messageCreate', async (message) => {
+        const prefix = "ali"
+        if (!message.content.startsWith(prefix)) return;
+
+        const args = message.content.slice(prefix.length).trim().split(/ +/);
+        const command = args.shift().toLowerCase();
+
+        if (!command) return;
+
+        const context = new CommandContext(message, args);
+        const handler = commandHandlers[command];
+
+        if (!handler) return;
+
+        await handler.execute(context);
+    });
+
+    client.on('ready', async () => {
+        console.log(`Logged in as ${client.user.tag}`)
+        try {
+            const dbFile = path.resolve(__dirname, '../db.json');
+            const adapter = new JSONFile(dbFile);
+            await getDBInstance(adapter, { users: {} });
+            console.log('started db ');
+            
+            await deployCommands();
+        } catch (error) {
+            console.error('Command deploy failed', error);
+        }
+    });
+
+    handlersRegistered = true;
+}
+
 async function deployCommands() {
     try {
-        console.log("/ Deploying commands...");
         await rest.put(Routes.applicationCommands(client.application.id), {body: commandDefinitions});
-        console.log('/ Commands deployed.');
+        console.log('registered commands to discord api with ' + commandDefinitions.length + ' commands');
     } catch (error) {
         console.log('failed to deploy commands:', error);
     }
 }
 
-client.on('interactionCreate', async (interaction) => {
-    if (interaction.isChatInputCommand()) {
-        try {
-            await handleCommand(interaction, CommandContext, commandHandlers);
-        } catch (error) {
-            console.log('Error handling command:', error);
-        }
-    }
-});
-
-client.on('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}`)
-    try {
-        await deployCommands();
-    } catch (error) {
-        console.error('Command deploy failed', error);
-    }
-});
 
 const cooldowns = new Map(); // store it OUTSIDE a function as a global so we avoid re-creating it on every call
 async function handleCommand(interaction, ctx = CommandContext, commandHandlers) {
@@ -166,5 +204,7 @@ async function handleCommand(interaction, ctx = CommandContext, commandHandlers)
     await handler.execute(context);
 }
 
+
+registerClientEventHandlers(client);
 
 client.login(TOKEN);

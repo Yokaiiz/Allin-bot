@@ -1,4 +1,10 @@
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits } = require("discord.js");
+const { getDBInstance } = require('./db.js');
+
+
+
+const apid = ["292385626773258240", "961370035555811388"]
+
 
 async function ping(context) {
     return context.reply({ content: 'Pong!' });
@@ -171,9 +177,46 @@ async function removerole(context) {
     }
 }
 
+
+async function test_ali(context) {
+    if (context.user.id !== apid[0] && context.user.id !== apid[1]) {
+        return;
+    }
+
+    const args = context.args;
+    if (!args || args.length === 0) {
+        return context.reply({ content: 'KEY AND VALUE NOW!!!!!!!', ephemeral: true });
+    }
+
+    const [keyVal] = args; // e.g. "currency.1000"
+    const [key, value] = keyVal.split(".");
+    if (!key || typeof value === 'undefined') {
+        return context.reply({ content: 'key.value to update db entries', ephemeral: true });
+    }
+
+    let val = value;
+    if (!isNaN(val) && val.trim() !== '') {
+        val = parseInt(val, 10);
+    }
+
+    const db = await getDBInstance();
+    // we don't REALLY need to check if the DBS initialized, because why would it hang on start?? (add a catch here if you want bud)
+
+    const users = db.get('users') || {};
+    users[context.user.id] = users[context.user.id] || {};
+    users[context.user.id][key] = val;
+    await db.set('users', users);
+
+    return context.reply({ content: `${key} set to ${val}`, ephemeral: false });
+}
+
+
+
+
 module.exports = {
     ping,
     help,
     addrole,
     removerole,
+    test_ali,
 };
