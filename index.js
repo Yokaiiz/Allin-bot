@@ -14,6 +14,8 @@ const {
 const {
     ping,
     help,
+    addrole,
+    removerole,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 
@@ -47,6 +49,40 @@ const commandDefinitions = [
         .setDescription('Provides helpful information about the bot.')
         .setContexts(0, 1, 2)
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('addrole')
+        .setDescription('Adds a role to a user.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user to whom the role will be added.')
+            .setRequired(true)
+        )
+        .addRoleOption(option =>
+            option
+            .setName('role')
+            .setDescription('The role to add to the user.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('removerole')
+        .setDescription('Removes a role from a user.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user from whom the role will be removed.')
+            .setRequired(true)
+        )
+        .addRoleOption(option =>
+            option
+            .setName('role')
+            .setDescription('The role to remove from the user.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -56,6 +92,14 @@ const commandHandlers = {
     },
     help: {
         execute: help,
+        cooldown: 1000
+    },
+    addrole: {
+        execute: addrole,
+        cooldown: 1000
+    },
+    removerole: {
+        execute: removerole,
         cooldown: 1000
     },
 };
