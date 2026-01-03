@@ -669,6 +669,18 @@ async function cuddle(context) {
     return _roleplayAction(context, 'cuddles', 'cuddle', roleplayGifs.cuddle);
 }
 
+async function slap(context) {
+    return _roleplayAction(context, 'slaps', 'slap', roleplayGifs.slap);
+}
+
+async function punch(context) {
+    return _roleplayAction(context, 'punches', 'punch', roleplayGifs.punch);
+}
+
+async function kill(context) {
+    return _roleplayAction(context, 'kills', 'kill', roleplayGifs.kill);
+}
+
 async function daily(context) {
     const db = await getDBInstance();
     const users = db.get('users') || {};
@@ -890,6 +902,9 @@ module.exports = {
     kiss,
     hug,
     cuddle,
+    slap,
+    punch,
+    kill,
     inv,
     use,
     kick,

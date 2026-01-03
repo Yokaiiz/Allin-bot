@@ -139,6 +139,24 @@ const commandDefinitions = [
         .addUserOption(option => option.setName('target').setDescription('User to cuddle').setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('slap')
+        .setDescription('Slap someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to slap').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('punch')
+        .setDescription('Punch someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to punch').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kill')
+        .setDescription('Kill someone')
+        .setContexts(0, 1, 2)
+        .addUserOption(option => option.setName('target').setDescription('User to kill').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('daily')
         .setDescription('Claim your daily reward.')
         .setContexts(0, 1, 2)
