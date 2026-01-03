@@ -1,0 +1,16 @@
+[
+	{
+		"name": "Shattered Stone",
+		"id": "shattered_stone",
+		"description": "Allows you to reroll your current attributes, may turn you radioactive",
+		"rarity": "MR"
+    },
+    {
+		"name": "Dark Particle",
+		"id": "dark_particle",
+		"description": "Grants you +35% LUCK for 20 minutes when used!!",
+		"rarity": "UR",
+        "duration": 1200000,
+        "effect": "luck_boost_35"
+    }
+]

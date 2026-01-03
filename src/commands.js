@@ -6,6 +6,8 @@ const roleplayGifs = require('./roleplay_gifs.json');
 
 const apid = ["292385626773258240", "961370035555811388"]
 
+const activeEffects = new Map();
+
 // Fetch anime GIF from Tenor (Node 18+ has global fetch). Falls back to null on error.
 async function fetchAnimeGif(term) {
     const key = process.env.TENOR_API_KEY;
@@ -315,21 +317,73 @@ async function profile(context) {
     });
 }
 
+function getActiveEffect(userId, effectType) {
+    const userEffects = activeEffects.get(userId);
+    if (!userEffects) return null;
+    return userEffects[effectType] || null;
+}
+
+function setActiveEffect(userId, effectType, duration) {
+    if (!activeEffects.has(userId)) {
+        activeEffects.set(userId, {});
+    }
+    const userEffects = activeEffects.get(userId);
+    const expiresAt = Date.now() + duration;
+    userEffects[effectType] = { expiresAt };
+    
+    setTimeout(() => {
+        const currentEffects = activeEffects.get(userId);
+        if (currentEffects && currentEffects[effectType]) {
+            delete currentEffects[effectType];
+            if (Object.keys(currentEffects).length === 0) {
+                activeEffects.delete(userId);
+            }
+        }
+    }, duration);
+}
+
 async function beg(context) {
     const db = await getDBInstance();
     const users = db.get('users') || {};
     const userData = users[context.user.id] || {};
     let currency = userData.currency || 0;
 
-    const earned = Math.floor(Math.random() * 100) + 1; // Earn between 1 and 100
+    let earned = Math.floor(Math.random() * 100) + 1;
+    
+    const luckBoost = getActiveEffect(context.user.id, 'luck_boost_35');
+    if (luckBoost && luckBoost.expiresAt > Date.now()) {
+        const multiplier = 1.35;
+        earned = Math.floor(earned * multiplier);
+    }
+    
     currency += earned;
     db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: currency}});
+
+    let itemReceived = null;
+    const itemChance = Math.random();
+    if (itemChance < 0.15) {
+        const allItems = context.getItemData();
+        if (allItems && allItems.length > 0) {
+            const randomItem = allItems[Math.floor(Math.random() * allItems.length)];
+            try {
+                await context.addItemToInventory(randomItem.id, 1);
+                itemReceived = randomItem;
+            } catch (error) {
+                console.error('Error adding item to inventory:', error);
+            }
+        }
+    }
+
+    let description = `You begged and received **${earned}** dollars!\n-# > *You now have a total of **${currency}** dollars!*`;
+    if (itemReceived) {
+        description += `\n\n**BOOYAH!** You also got: **${itemReceived.name}**`;
+    }
 
     const begEmbed = new EmbedBuilder()
     .setTitle('Begging Results')
     .setColor('DarkVividPink')
     .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
-    .setDescription(`You begged and received **${earned}** dollars!\nYou now have a total of **${currency}** dollars.`)
+    .setDescription(description)
     .setTimestamp();
 
     await context.reply({
@@ -706,6 +760,84 @@ async function ban(context) {
 }
 
 
+async function inv(context) {
+    const inventory = await context.getInventory();
+
+    if (!inventory || inventory.length === 0) {
+        return context.reply({ content: `${context.formatName()}, you've got no items in your inventory!`, ephemeral: true });
+    }
+
+    const description = inventory.map((item, idx) => {
+        return `[\`${idx + 1}\`]: ${item.name} x${item.quantity}`;
+    }).join('\n');
+
+    const invEmbed = new EmbedBuilder()
+        .setTitle(`${context.user.username}'s Inventory`)
+        .setColor('Aqua')
+        .setDescription(description)
+        .setTimestamp();
+
+    await context.reply({ embeds: [invEmbed] });
+}
+
+async function use(context) {
+    const args = context.args;
+    
+    if (!args || args.length === 0) {
+        return context.reply({ content: 'specify the item you want to use, e.g. `ali use <item>', ephemeral: true });
+    }
+
+    const itemNameInput = args.join(' ').toLowerCase();
+    const itemData = context.getItemByName(itemNameInput);
+    
+    if (!itemData) {
+        return 
+    }
+
+    if (!itemData.duration || !itemData.effect) {
+        return 
+    }
+
+    const inventory = await context.getInventory();
+    if (!inventory || inventory.length === 0) {
+        return context.reply({ content: 'you got ZERO items', ephemeral: true });
+    }
+
+    const itemInInventory = inventory.find(item => item.id === itemData.id);
+    if (!itemInInventory || itemInInventory.quantity <= 0) {
+        return 
+    }
+    
+
+
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const userData = users[userId] || {};
+
+    if (!userData.inventory || !userData.inventory[itemData.id]) {
+        return // should never happen
+    }
+
+    if (userData.inventory[itemData.id] <= 0) {
+        return // should never happen
+    }
+
+    userData.inventory[itemData.id] -= 1;
+    if (userData.inventory[itemData.id] === 0) {
+        delete userData.inventory[itemData.id];
+    }
+
+    await db.set('users', { ...users, [userId]: { ...userData, id: userId, name: context.user.username } });
+
+    setActiveEffect(userId, itemData.effect, itemData.duration);
+
+    const durationMinutes = Math.floor(itemData.duration / 60000);
+    await context.reply({
+        content: `You used **${itemData.name}**\n\n-# > **Effect:** ${itemData.description}\n-# > **Duration:** ${durationMinutes} minutes`
+    });
+}
+
 module.exports = {
     ping,
     help,
@@ -721,4 +853,6 @@ module.exports = {
     kiss,
     hug,
     cuddle,
+    inv,
+    use,
 };

@@ -26,6 +26,8 @@ const {
     cuddle,
     timeout,
     ban,
+    inv,
+    use,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -180,6 +182,22 @@ const commandDefinitions = [
             .setRequired(false)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('inv')
+        .setDescription('Displays your inventory.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('use')
+        .setDescription('Uses an item from your inventory.')
+        .setContexts(0, 1, 2)
+        .addStringOption(option =>
+            option
+            .setName('item')
+            .setDescription('The item to use.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -237,6 +255,14 @@ const commandHandlers = {
     },
     ban: {
         execute: ban,
+        cooldown: 1000
+    },
+    inv: {
+        execute: inv,
+        cooldown: 1000
+    },
+    use: {
+        execute: use,
         cooldown: 1000
     },
 };
