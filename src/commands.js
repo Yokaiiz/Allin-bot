@@ -77,6 +77,16 @@ function toGerund(verb) {
     return verb + 'ing';
 }
 
+// Items that can be found when begging
+const begItems = [
+    { name: 'Old Coin', value: 10, rarity: 'common' },
+    { name: 'Torn Ribbon', value: 5, rarity: 'common' },
+    { name: 'Shiny Necklace', value: 200, rarity: 'uncommon' },
+    { name: 'Mystery Box', value: 0, rarity: 'uncommon' },
+    { name: 'Golden Ticket', value: 500, rarity: 'rare' },
+    { name: 'Rare Gem', value: 1000, rarity: 'very rare' }
+];
+
 
 async function ping(context) {
     return context.reply({ content: 'Pong!' });
@@ -386,9 +396,7 @@ async function beg(context) {
     .setDescription(description)
     .setTimestamp();
 
-    await context.reply({
-        embeds: [begEmbed],
-    });
+    await context.reply({ embeds: [begEmbed] });
 }
 
 async function gamble(context) {
