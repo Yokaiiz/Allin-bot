@@ -28,6 +28,7 @@ const {
     ban,
     inv,
     use,
+    kick,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -198,6 +199,23 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Kicks a user from the server.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user to kick.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('reason')
+            .setDescription('Reason for the kick.')
+            .setRequired(false)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -263,6 +281,10 @@ const commandHandlers = {
     },
     use: {
         execute: use,
+        cooldown: 1000
+    },
+    kick: {
+        execute: kick,
         cooldown: 1000
     },
 };

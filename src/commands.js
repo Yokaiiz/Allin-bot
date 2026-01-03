@@ -846,6 +846,35 @@ async function use(context) {
     });
 }
 
+async function kick(context) {
+    const targetUser = context.options.getUser('target');
+    const reason = context.options.getString('reason') || 'No reason provided';
+    const executorMember = context.guild.members.cache.get(context.user.id);
+
+    if (!executorMember.permissions.has(
+        PermissionFlagsBits.KickMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'You do not have permission to kick members or do not have admin.', ephemeral: true });
+    }
+
+    if (!context.guild.members.me.permissions.has(
+        PermissionFlagsBits.KickMembers,
+        PermissionFlagsBits.Administrator,
+    )) {
+        return context.reply({ content: 'I do not have permission to kick members or do not have admin.', ephemeral: true });
+    }
+    
+    try {
+        const memberToKick = await context.guild.members.fetch(targetUser.id);
+        await memberToKick.kick(reason);
+        return context.reply({ content: `Successfully kicked user ${targetUser.tag}. Reason: ${reason}` });
+    } catch (error) {
+        console.error('Error kicking member:', error);
+        return context.reply({ content: 'There was an error kicking the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+    }
+}
+
 module.exports = {
     ping,
     help,
@@ -863,4 +892,5 @@ module.exports = {
     cuddle,
     inv,
     use,
+    kick,
 };
