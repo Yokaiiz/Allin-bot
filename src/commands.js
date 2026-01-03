@@ -170,7 +170,7 @@ async function help(context) {
                 },
                 {
                     name: 'Roleplay Commands',
-                    value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.'
+                    value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.\n`/slap <target>` - Slap another user.\n`/punch <target>` - Punch another user.\n`/kill <target>` - Kill another user.'
                 }
             )
             .setTimestamp();
