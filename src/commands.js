@@ -345,7 +345,7 @@ async function beg(context) {
             .setColor('DarkVividPink')
             .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
             .setDescription(`You begged and found an item: **${item.name}**${item.value ? ` (worth $${item.value})` : ''}!`)
-            .addFields({ name: 'Inventory Count', value: `${userData.items.length}`, inline: true })
+            .addFields({ name: 'Inventory Count', value: `${userData.items.length}`, inline: false })
             .setTimestamp();
 
         await context.reply({ embeds: [begEmbed] });
