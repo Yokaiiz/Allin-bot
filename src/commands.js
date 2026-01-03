@@ -75,6 +75,16 @@ function toGerund(verb) {
     return verb + 'ing';
 }
 
+// Items that can be found when begging
+const begItems = [
+    { name: 'Old Coin', value: 10, rarity: 'common' },
+    { name: 'Torn Ribbon', value: 5, rarity: 'common' },
+    { name: 'Shiny Necklace', value: 200, rarity: 'uncommon' },
+    { name: 'Mystery Box', value: 0, rarity: 'uncommon' },
+    { name: 'Golden Ticket', value: 500, rarity: 'rare' },
+    { name: 'Rare Gem', value: 1000, rarity: 'very rare' }
+];
+
 
 async function ping(context) {
     return context.reply({ content: 'Pong!' });
@@ -321,20 +331,40 @@ async function beg(context) {
     const userData = users[context.user.id] || {};
     let currency = userData.currency || 0;
 
+    // 30% chance to find an item instead of money
+    const roll = Math.random();
+    if (roll < 0.30) {
+        const item = begItems[Math.floor(Math.random() * begItems.length)];
+        userData.items = userData.items || [];
+        userData.items.push(item);
+        // persist without changing currency
+        await db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency}});
+
+        const begEmbed = new EmbedBuilder()
+            .setTitle('Begging Results')
+            .setColor('DarkVividPink')
+            .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+            .setDescription(`You begged and found an item: **${item.name}**${item.value ? ` (worth $${item.value})` : ''}!`)
+            .addFields({ name: 'Inventory Count', value: `${userData.items.length}`, inline: true })
+            .setTimestamp();
+
+        await context.reply({ embeds: [begEmbed] });
+        return;
+    }
+
+    // Otherwise give money
     const earned = Math.floor(Math.random() * 100) + 1; // Earn between 1 and 100
     currency += earned;
-    db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: currency}});
+    await db.set('users', {...users, [context.user.id]: {...userData, id: context.user.id, name: context.user.username, currency: currency}});
 
     const begEmbed = new EmbedBuilder()
-    .setTitle('Begging Results')
-    .setColor('DarkVividPink')
-    .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
-    .setDescription(`You begged and received **${earned}** dollars!\nYou now have a total of **${currency}** dollars.`)
-    .setTimestamp();
+        .setTitle('Begging Results')
+        .setColor('DarkVividPink')
+        .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
+        .setDescription(`You begged and received **${earned}** dollars!\nYou now have a total of **${currency}** dollars.`)
+        .setTimestamp();
 
-    await context.reply({
-        embeds: [begEmbed],
-    });
+    await context.reply({ embeds: [begEmbed] });
 }
 
 async function gamble(context) {
