@@ -29,6 +29,8 @@ const {
     inv,
     use,
     kick,
+    createchannel,
+    deletechannel,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -234,6 +236,34 @@ const commandDefinitions = [
             .setRequired(false)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('createchannel')
+        .setDescription('Creates a new channel.')
+        .setContexts(0)
+        .addStringOption(option =>
+            option
+            .setName('name')
+            .setDescription('Name of the channel to create.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('type')
+            .setDescription('Type of the channel to create.')
+            .setRequired(false)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('deletechannel')
+        .setDescription('Deletes a channel.')
+        .setContexts(0)
+        .addStringOption(option =>
+            option
+            .setName('name')
+            .setDescription('Name of the channel to delete.')
+            .setRequired(true)
+        )
+        .toJSON()
 ];
 
 const commandHandlers = {
@@ -303,6 +333,14 @@ const commandHandlers = {
     },
     kick: {
         execute: kick,
+        cooldown: 1000
+    },
+    createchannel: {
+        execute: createchannel,
+        cooldown: 1000
+    },
+    deletechannel: {
+        execute: deletechannel,
         cooldown: 1000
     },
 };

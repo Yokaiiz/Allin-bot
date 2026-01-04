@@ -162,7 +162,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel.\n`/deletechannel` - Deletes a channel.'
                 },
                 {
                     name: 'Economy Commands',
@@ -887,6 +887,51 @@ async function kick(context) {
     }
 }
 
+async function createchannel(context) {
+    const channelName = context.options.getString('name');
+    const channelTypeInput = context.options.getString('type') || 'GUILD_TEXT';
+    let channelType;
+
+    switch (channelTypeInput.toLowerCase()) {
+        case 'voice':
+            channelType = 'GUILD_VOICE';
+            break;
+        case 'text':
+            channelType = 'GUILD_TEXT';
+            break;
+        default:
+            channelType = 'GUILD_TEXT';
+    }
+
+    try {
+        await context.guild.channels.create({
+            name: channelName,
+            type: channelType
+        });
+        return context.reply({ content: `Successfully created channel ${channelName}.` });
+    } catch (error) {
+        console.error('Error creating channel:', error);
+        return context.reply({ content: 'There was an error creating the channel. Please ensure I have the correct permissions.', ephemeral: true });
+    }
+}
+
+async function deletechannel(context) {
+    const channelName = context.options.getString('name');
+
+    try {
+        const channel = context.guild.channels.cache.find(ch => ch.name === channelName);
+        if (!channel) {
+            return context.reply({ content: `Channel ${channelName} not found.`, ephemeral: true });
+        }
+
+        await channel.delete();
+        return context.reply({ content: `Successfully deleted channel ${channelName}.` });
+    } catch (error) {
+        console.error('Error deleting channel:', error);
+        return context.reply({ content: 'There was an error deleting the channel. Please ensure I have the correct permissions.', ephemeral: true });
+    }
+}
+
 module.exports = {
     ping,
     help,
@@ -908,4 +953,6 @@ module.exports = {
     inv,
     use,
     kick,
+    createchannel,
+    deletechannel,
 };
