@@ -24,6 +24,9 @@ const {
     kiss,
     hug,
     cuddle,
+    slap,
+    punch,
+    kill,
     timeout,
     ban,
     inv,
@@ -249,7 +252,13 @@ const commandDefinitions = [
         .addStringOption(option =>
             option
             .setName('type')
-            .setDescription('Type of the channel to create.')
+            .setDescription('Channel type: text (default), voice, category, news, stage, forum')
+            .setRequired(false)
+        )
+        .addStringOption(option =>
+            option
+            .setName('topic')
+            .setDescription('Optional topic for text channels')
             .setRequired(false)
         )
         .toJSON(),
@@ -260,8 +269,14 @@ const commandDefinitions = [
         .addStringOption(option =>
             option
             .setName('name')
-            .setDescription('Name of the channel to delete.')
-            .setRequired(true)
+            .setDescription('Name of the channel to delete (optional).')
+            .setRequired(false)
+        )
+        .addChannelOption(option =>
+            option
+            .setName('channel')
+            .setDescription('Select the channel to delete (preferred).')
+            .setRequired(false)
         )
         .toJSON()
 ];
@@ -309,6 +324,18 @@ const commandHandlers = {
     },
     cuddle: {
         execute: cuddle,
+        cooldown: 3000
+    },
+    slap: {
+        execute: slap,
+        cooldown: 3000
+    },
+    punch: {
+        execute: punch,
+        cooldown: 3000
+    },
+    kill: {
+        execute: kill,
         cooldown: 3000
     },
     daily: {

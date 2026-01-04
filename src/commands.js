@@ -1,4 +1,4 @@
-const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits } = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType } = require("discord.js");
 const { getDBInstance } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
 
@@ -162,7 +162,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel.\n`/deletechannel` - Deletes a channel.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.'
                 },
                 {
                     name: 'Economy Commands',
@@ -175,10 +175,12 @@ async function help(context) {
             )
             .setTimestamp();
 
-            await interaction.update({
-                embeds: [discordBotHelpEmbed],
-                components: [buttonRow]
-            });
+            try {
+                await interaction.update({ embeds: [discordBotHelpEmbed], components: [buttonRow] });
+            } catch (err) {
+                console.error('interaction.update failed (help menu), falling back to edit:', err);
+                try { await replyMessage.edit({ embeds: [discordBotHelpEmbed], components: [buttonRow] }); } catch (e) { try { await context.editReply({ embeds: [discordBotHelpEmbed], components: [buttonRow] }); } catch (e2) {/* ignore */} }
+            }
         }
     });
 
@@ -187,9 +189,12 @@ async function help(context) {
         const disabledRow = new ActionRowBuilder().addComponents(
             helpSelectMenu,
         );
-        await context.editReply({
-            components: [disabledRow, buttonRow]
-        });
+        try {
+            await context.editReply({ components: [disabledRow, buttonRow] });
+        } catch (err) {
+            console.error('help collector end edit failed, falling back:', err);
+            try { await replyMessage.edit({ components: [disabledRow, buttonRow] }); } catch (e) { try { await context.editReply({ components: [disabledRow, buttonRow] }); } catch (e2) {/* ignore */} }
+        }
 
     });
 }
@@ -582,7 +587,13 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
                 )
                 .setTimestamp();
 
-            await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
+            try {
+                await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
+            } catch (err) {
+                console.error('interaction.update failed (decline), falling back to message edit:', err);
+                try { await replyMessage.edit({ embeds: [declinedEmbed], components: [disabledRow] }); } catch (e) { try { await context.editReply({ embeds: [declinedEmbed], components: [disabledRow] }); } catch (e2) {/* ignore */} }
+            }
+
             collector.stop();
             return;
         }
@@ -640,7 +651,12 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
                 if (buf2) recipFile = { attachment: buf2, name: recipFilename };
             } catch (e) { recipFile = null; }
             const recipFiles = recipFile ? [recipFile] : [{ attachment: recipGif, name: recipFilename }];
-            await interaction.update({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles });
+            try {
+                await interaction.update({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles });
+            } catch (err) {
+                console.error('interaction.update failed (reciprocate), falling back to message edit:', err);
+                try { await replyMessage.edit({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles }); } catch (e) { try { await context.editReply({ embeds: [recipEmbed], components: [disabledRow2] }); } catch (e2) {/* ignore */} }
+            }
             collector.stop();
         }
     });
@@ -888,47 +904,221 @@ async function kick(context) {
 }
 
 async function createchannel(context) {
-    const channelName = context.options.getString('name');
-    const channelTypeInput = context.options.getString('type') || 'GUILD_TEXT';
-    let channelType;
+    const rawName = context.options.getString('name');
+    if (!rawName) return context.reply({ content: 'You must provide a channel name.', ephemeral: true });
 
-    switch (channelTypeInput.toLowerCase()) {
+    // sanitize - discord prefers lower-case and dashes for text channel names
+    const channelName = rawName.trim().replace(/\s+/g, '-').toLowerCase();
+    const typeInput = (context.options.getString('type') || 'text').toLowerCase();
+    const topic = context.options.getString('topic');
+
+    const executorMember = context.guild.members.cache.get(context.user.id);
+    if (!executorMember || (!executorMember.permissions.has(PermissionFlagsBits.ManageChannels) && !executorMember.permissions.has(PermissionFlagsBits.Administrator))) {
+        return context.reply({ content: 'You do not have permission to create channels.', ephemeral: true });
+    }
+
+    if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels) && !context.guild.members.me.permissions.has(PermissionFlagsBits.Administrator)) {
+        return context.reply({ content: 'I do not have permission to create channels.', ephemeral: true });
+    }
+
+    // Prevent creating duplicate channels with the same name
+    const existing = context.guild.channels.cache.find(ch => ch.name === channelName);
+    if (existing) {
+        return context.reply({ content: `A channel named **${channelName}** already exists.`, ephemeral: true });
+    }
+
+    let channelType;
+    switch (typeInput) {
         case 'voice':
-            channelType = 'GUILD_VOICE';
+        case 'vc':
+            channelType = ChannelType.GuildVoice;
+            break;
+        case 'category':
+            channelType = ChannelType.GuildCategory;
+            break;
+        case 'stage':
+            channelType = ChannelType.GuildStageVoice;
+            break;
+        case 'forum':
+            channelType = ChannelType.GuildForum;
+            break;
+        case 'news':
+        case 'announcement':
+            channelType = ChannelType.GuildAnnouncement;
             break;
         case 'text':
-            channelType = 'GUILD_TEXT';
-            break;
         default:
-            channelType = 'GUILD_TEXT';
+            channelType = ChannelType.GuildText;
+            break;
     }
 
     try {
-        await context.guild.channels.create({
+        const created = await context.guild.channels.create({
             name: channelName,
-            type: channelType
+            type: channelType,
+            topic: channelType === ChannelType.GuildText ? (topic || null) : undefined,
+            reason: `Created by ${context.user.tag} via bot command`
         });
-        return context.reply({ content: `Successfully created channel ${channelName}.` });
+
+        return context.reply({ content: `Successfully created channel <#${created.id}>.`, ephemeral: false });
     } catch (error) {
         console.error('Error creating channel:', error);
-        return context.reply({ content: 'There was an error creating the channel. Please ensure I have the correct permissions.', ephemeral: true });
+        return context.reply({ content: 'There was an error creating the channel. Please ensure I have the correct permissions and that the name is valid.', ephemeral: true });
     }
 }
 
 async function deletechannel(context) {
-    const channelName = context.options.getString('name');
+    const nameInput = context.options.getString('name')?.trim();
+    const channelOption = context.options.getChannel('channel');
 
+    if (!nameInput && !channelOption) {
+        return context.reply({ content: 'You must provide a channel `name` or select a `channel` to delete. Example: `/deletechannel channel:#general` or `/deletechannel name:general`', ephemeral: true });
+    }
+
+    const executorMember = context.guild.members.cache.get(context.user.id);
+    if (!executorMember || (!executorMember.permissions.has(PermissionFlagsBits.ManageChannels) && !executorMember.permissions.has(PermissionFlagsBits.Administrator))) {
+        return context.reply({ content: 'You do not have permission to delete channels.', ephemeral: true });
+    }
+
+    if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels) && !context.guild.members.me.permissions.has(PermissionFlagsBits.Administrator)) {
+        return context.reply({ content: 'I do not have permission to delete channels.', ephemeral: true });
+    }
+
+    // Collect candidate channels
+    let candidates = [];
     try {
-        const channel = context.guild.channels.cache.find(ch => ch.name === channelName);
-        if (!channel) {
-            return context.reply({ content: `Channel ${channelName} not found.`, ephemeral: true });
+        if (channelOption) {
+            candidates.push(channelOption);
         }
 
-        await channel.delete();
-        return context.reply({ content: `Successfully deleted channel ${channelName}.` });
-    } catch (error) {
-        console.error('Error deleting channel:', error);
-        return context.reply({ content: 'There was an error deleting the channel. Please ensure I have the correct permissions.', ephemeral: true });
+        if (nameInput) {
+            const exact = context.guild.channels.cache.filter(ch => ch.name && ch.name.toLowerCase() === nameInput.toLowerCase());
+            if (exact.size) candidates.push(...exact.values());
+            else {
+                const partial = context.guild.channels.cache.filter(ch => ch.name && ch.name.toLowerCase().includes(nameInput.toLowerCase()));
+                if (partial.size) candidates.push(...partial.values());
+            }
+        }
+    } catch (e) {
+        console.error('Error searching channels:', e);
+    }
+
+    // Deduplicate by id
+    candidates = [...new Map(candidates.map(ch => [ch.id, ch])).values()];
+
+    if (!candidates.length) return context.reply({ content: `No channels found matching **${nameInput || (channelOption ? channelOption.id : '')}**.`, ephemeral: true });
+
+    // If multiple matches, present a select menu to the user
+    if (candidates.length > 1) {
+        const options = candidates.slice(0, 25).map(ch => ({ label: `#${ch.name}`, description: `ID: ${ch.id}`, value: ch.id }));
+        const select = new StringSelectMenuBuilder()
+            .setCustomId(`delete_channel_select_${context.user.id}`)
+            .setPlaceholder('Select a channel to delete')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder().addComponents(select);
+
+        await context.reply({ content: 'Multiple channels matched your query. Please select the one you want to delete:', components: [row], ephemeral: true });
+        const replyMessage = await context.interaction.fetchReply();
+
+        const collector = replyMessage.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 60000, filter: (i) => i.user.id === context.user.id });
+
+        collector.on('collect', async (interaction) => {
+            await interaction.deferUpdate();
+            const selectedId = interaction.values[0];
+            const ch = context.guild.channels.cache.get(selectedId) || await context.guild.channels.fetch(selectedId).catch(() => null);
+            if (!ch) {
+                try {
+                    await interaction.editReply({ content: 'Selected channel not found.', components: [] });
+                } catch (err) {
+                    console.error('interaction.editReply failed (selected not found), falling back to message edit:', err);
+                    try { await replyMessage.edit({ content: 'Selected channel not found.', components: [] }); } catch (e) { try { await context.editReply({ content: 'Selected channel not found.', components: [] }); } catch (e2) {/* ignore */} }
+                }
+                return;
+            }
+            await proceedToConfirmDelete(context, ch);
+        });
+
+        collector.on('end', async () => {
+            try {
+                select.setDisabled(true);
+                await context.editReply({ components: [new ActionRowBuilder().addComponents(select)] });
+            } catch (err) {
+                console.error('delete select end edit failed, falling back:', err);
+                try { await replyMessage.edit({ components: [new ActionRowBuilder().addComponents(select)] }); } catch (e) { try { await context.editReply({ components: [new ActionRowBuilder().addComponents(select)] }); } catch (e2) {/* ignore */} }
+            }
+        });
+
+        return;
+    }
+
+    const channel = candidates[0];
+    await proceedToConfirmDelete(context, channel);
+
+    // helper
+    async function proceedToConfirmDelete(ctx, ch) {
+        if (!ch) return ctx.reply({ content: 'Channel not found.', ephemeral: true });
+        if (!ch.deletable && !ch.manageable) {
+            return ctx.reply({ content: 'I do not have permission to delete that channel.', ephemeral: true });
+        }
+
+        const confirmButton = new ButtonBuilder().setCustomId(`del_ch_conf_${ch.id}_${ctx.user.id}`).setLabel('Confirm Delete').setStyle(ButtonStyle.Danger);
+        const cancelButton = new ButtonBuilder().setCustomId(`del_ch_can_${ch.id}_${ctx.user.id}`).setLabel('Cancel').setStyle(ButtonStyle.Secondary);
+        const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+
+        const embed = new EmbedBuilder().setTitle(`Delete channel #${ch.name}`).setDescription(`Are you sure you want to delete **#${ch.name}** (ID: ${ch.id})? This action cannot be undone.`).setColor('DarkVividPink');
+
+        await ctx.reply({ embeds: [embed], components: [row], ephemeral: true });
+        const replyMessage = await ctx.interaction.fetchReply();
+
+        const collector = replyMessage.createMessageComponentCollector({ componentType: ComponentType.Button, time: 60000, filter: (i) => i.user.id === ctx.user.id && (i.customId === `del_ch_conf_${ch.id}_${ctx.user.id}` || i.customId === `del_ch_can_${ch.id}_${ctx.user.id}`) });
+
+        collector.on('collect', async (i) => {
+            await i.deferUpdate();
+            if (i.customId.startsWith('del_ch_can_')) {
+                try { select && select.setDisabled(true); } catch (e) {}
+                try {
+                    return await i.editReply({ content: 'Deletion cancelled.', embeds: [], components: [] });
+                } catch (err) {
+                    console.error('i.editReply failed (cancel), falling back to message edit:', err);
+                    try { await replyMessage.edit({ content: 'Deletion cancelled.', embeds: [], components: [] }); } catch (e) { try { await ctx.editReply({ content: 'Deletion cancelled.', embeds: [], components: [] }); } catch (e2) {/* ignore */} }
+                    return;
+                }
+            }
+
+            if (i.customId.startsWith('del_ch_conf_')) {
+                try {
+                    await ch.delete(`Deleted by ${ctx.user.tag} via bot command`);
+                    try {
+                        return await i.editReply({ content: `Successfully deleted channel **#${ch.name}** (ID: ${ch.id}).`, embeds: [], components: [] });
+                    } catch (err) {
+                        console.error('i.editReply failed (success), falling back to message edit:', err);
+                        try { await replyMessage.edit({ content: `Successfully deleted channel **#${ch.name}** (ID: ${ch.id}).`, embeds: [], components: [] }); } catch (e) { try { await ctx.editReply({ content: `Successfully deleted channel **#${ch.name}** (ID: ${ch.id}).`, embeds: [], components: [] }); } catch (e2) {/* ignore */} }
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error deleting channel:', e);
+                    try {
+                        return await i.editReply({ content: 'There was an error deleting the channel. Please ensure I have the correct permissions.', embeds: [], components: [] });
+                    } catch (err) {
+                        console.error('i.editReply failed (error), falling back to message edit:', err);
+                        try { await replyMessage.edit({ content: 'There was an error deleting the channel. Please ensure I have the correct permissions.', embeds: [], components: [] }); } catch (e2) { try { await ctx.editReply({ content: 'There was an error deleting the channel. Please ensure I have the correct permissions.', embeds: [], components: [] }); } catch (e3) {/* ignore */} }
+                        return;
+                    }
+                }
+            }
+        });
+
+        collector.on('end', async () => {
+            try {
+                confirmButton.setDisabled(true);
+                cancelButton.setDisabled(true);
+                await ctx.editReply({ components: [new ActionRowBuilder().addComponents(confirmButton, cancelButton)] });
+            } catch (err) {
+                console.error('confirm collector end edit failed, falling back:', err);
+                try { await replyMessage.edit({ components: [new ActionRowBuilder().addComponents(confirmButton, cancelButton)] }); } catch (e) { try { await ctx.editReply({ components: [new ActionRowBuilder().addComponents(confirmButton, cancelButton)] }); } catch (e2) {/* ignore */} }
+            }
+        });
     }
 }
 
