@@ -161,7 +161,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.'
                 },
                 {
                     name: 'Economy Commands',
@@ -1270,6 +1270,79 @@ async function shop(context) {
     })
 }
 
+async function purge(context) {
+    const amount = context.options.getInteger('amount');
+
+    if (!context.guild) {
+        return context.reply({
+            content: 'This command can only be used in a server.',
+            ephemeral: true
+        });
+    }
+
+    // BOT permissions
+    const botMember =
+        context.guild.members.me ??
+        await context.guild.members.fetch(context.client.user.id);
+
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        return context.reply({
+            content: 'I do not have permission to manage messages in this channel.',
+            ephemeral: true
+        });
+    }
+
+    // USER permissions
+    const member =
+        context.member ??
+        await context.guild.members.fetch(context.user.id);
+
+    if (!member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        return context.reply({
+            content: 'You do not have permission to manage messages in this channel.',
+            ephemeral: true
+        });
+    }
+
+    if (!amount || amount < 1) {
+        return context.reply({
+            content: 'You must specify a number of messages to delete (at least 1).',
+            ephemeral: true
+        });
+    }
+
+    await context.deferReply({ ephemeral: true });
+
+    let deleted = 0;
+    let lastId = null;
+
+    while (deleted < amount) {
+        const limit = Math.min(100, amount - deleted);
+
+        const messages = await context.channel.messages.fetch({
+            limit,
+            before: lastId ?? undefined
+        });
+
+        if (!messages.size) break;
+
+        const deletable = messages.filter(m =>
+            Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000
+        );
+
+        if (!deletable.size) break;
+
+        await context.channel.bulkDelete(deletable, true);
+
+        deleted += deletable.size;
+        lastId = messages.last().id;
+    }
+
+    await context.editReply({
+        content: `🧹 Deleted **${deleted}** message${deleted === 1 ? '' : 's'}.`
+    });
+}
+
 module.exports = {
     ping,
     help,
@@ -1294,4 +1367,5 @@ module.exports = {
     createchannel,
     deletechannel,
     shop,
+    purge,
 };

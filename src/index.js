@@ -35,6 +35,7 @@ const {
     createchannel,
     deletechannel,
     shop,
+    purge,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -285,6 +286,17 @@ const commandDefinitions = [
         .setDescription('Displays the shop.')
         .setContexts(0, 1, 2)
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('purge')
+        .setDescription('Deletes a number of messages from the channel.')
+        .setContexts(0)
+        .addIntegerOption(option =>
+            option
+            .setName('amount')
+            .setDescription('Number of messages to delete (max 100).')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -379,6 +391,10 @@ const commandHandlers = {
     shop: {
         execute: shop,
         cooldown: 1000
+    },
+    purge: {
+        execute: purge,
+        cooldown: 5000
     },
 };
 
