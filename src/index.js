@@ -34,6 +34,7 @@ const {
     kick,
     createchannel,
     deletechannel,
+    shop,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -278,7 +279,12 @@ const commandDefinitions = [
             .setDescription('Select the channel to delete (preferred).')
             .setRequired(false)
         )
-        .toJSON()
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('shop')
+        .setDescription('Displays the shop.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -368,6 +374,10 @@ const commandHandlers = {
     },
     deletechannel: {
         execute: deletechannel,
+        cooldown: 1000
+    },
+    shop: {
+        execute: shop,
         cooldown: 1000
     },
 };

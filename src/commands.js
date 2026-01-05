@@ -3,7 +3,6 @@ const { getDBInstance } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
 
 
-
 const apid = ["292385626773258240", "961370035555811388"]
 
 const activeEffects = new Map();
@@ -166,7 +165,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.'
                 },
                 {
                     name: 'Roleplay Commands',
@@ -491,23 +490,23 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
         return context.reply({ content: `You can't ${actionVerb} a bot.`, ephemeral: true });
     }
 
+    // Pick a random gif (local first, Tenor fallback)
     let gif = null;
-    try {
-        const fetched = await fetchAnimeGif(actionVerb);
-        if (fetched) gif = fetched;
-    } catch (e) {
-        // ignore and fallback
+    if (Array.isArray(gifs) && gifs.length > 0) {
+        gif = gifs[Math.floor(Math.random() * gifs.length)];
+    } else {
+        try {
+            gif = await fetchAnimeGif(actionVerb);
+        } catch {}
     }
-    if (!gif) gif = gifs[Math.floor(Math.random() * gifs.length)];
 
-    // Update counts in DB: given/received for actor and target
     const db = await getDBInstance();
     const users = db.get('users') || {};
     const actorData = users[actor.id] || {};
     const targetData = users[targetUser.id] || {};
 
-    actorData.roleplay = actorData.roleplay || {};
-    targetData.roleplay = targetData.roleplay || {};
+    actorData.roleplay ??= {};
+    targetData.roleplay ??= {};
 
     const givenKey = `${actionKey}Given`;
     const receivedKey = `${actionKey}Received`;
@@ -515,23 +514,25 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
     actorData.roleplay[givenKey] = (actorData.roleplay[givenKey] || 0) + 1;
     targetData.roleplay[receivedKey] = (targetData.roleplay[receivedKey] || 0) + 1;
 
-    // write both users back
-    await db.set('users', { ...users, [actor.id]: { ...actorData, id: actor.id, name: actor.username }, [targetUser.id]: { ...targetData, id: targetUser.id, name: targetUser.username } });
-
-    const actorGivenCount = actorData.roleplay[givenKey] || 0;
-    const targetReceivedCount = targetData.roleplay[receivedKey] || 0;
+    await db.set('users', {
+        ...users,
+        [actor.id]: { ...actorData, id: actor.id, name: actor.username },
+        [targetUser.id]: { ...targetData, id: targetUser.id, name: targetUser.username }
+    });
 
     const verbThird = toThirdPerson(actionVerb);
     const gerund = toGerund(actionVerb);
-    const filename = `${actionKey}_${actor.id}_${targetUser.id}_${Date.now()}.gif`;
-    const embedWithFields = new EmbedBuilder()
+
+    const embed = new EmbedBuilder()
         .setTitle(`${actor.username} ${verbThird} ${targetUser.username}`)
         .setDescription(`${actor.username} ${gerund} ${targetUser.username}.`)
-        .setImage(`attachment://${filename}`)
         .setColor('DarkVividPink')
-        .addFields(
-            { name: `${targetUser.username} - ${actionKey} received`, value: `${targetReceivedCount}`, inline: true }
-        )
+        .addFields({
+            name: `${targetUser.username} - ${actionKey} received`,
+            value: `${targetData.roleplay[receivedKey]}`,
+            inline: true
+        })
+        .setImage(gif)
         .setTimestamp();
 
     const recipButton = new ButtonBuilder()
@@ -544,132 +545,92 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
         .setLabel('Decline')
         .setStyle(ButtonStyle.Secondary);
 
-    const actionRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
+    const row = new ActionRowBuilder().addComponents(recipButton, declineButton);
 
-    // Attempt to download the GIF and send as a buffer attachment to avoid CDN/embed loading issues
-    let fileToSend = null;
-    try {
-        const buf = await downloadAsBuffer(gif);
-        if (buf) fileToSend = { attachment: buf, name: filename };
-    } catch (e) {
-        fileToSend = null;
-    }
-    const files = fileToSend ? [fileToSend] : [{ attachment: gif, name: filename }];
-    await context.reply({ embeds: [embedWithFields], components: [actionRow], files });
+    await context.reply({ embeds: [embed], components: [row] });
 
     const replyMessage = await context.interaction.fetchReply();
-
-    const validIds = new Set([`rp_rec_${actionKey}_${actor.id}_${targetUser.id}`, `rp_dec_${actionKey}_${actor.id}_${targetUser.id}`]);
 
     const collector = replyMessage.createMessageComponentCollector({
         componentType: ComponentType.Button,
         time: 60000,
-        filter: (i) => validIds.has(i.customId)
+        filter: i =>
+            i.customId === `rp_rec_${actionKey}_${actor.id}_${targetUser.id}` ||
+            i.customId === `rp_dec_${actionKey}_${actor.id}_${targetUser.id}`
     });
 
-    collector.on('collect', async (interaction) => {
+    collector.on('collect', async interaction => {
         if (interaction.user.id !== targetUser.id) {
             return interaction.reply({ content: 'Only the target can respond to this interaction.', ephemeral: true });
         }
 
-        // Decline handling
-        if (interaction.customId.startsWith('rp_dec_')) {
-            recipButton.setDisabled(true);
-            declineButton.setDisabled(true);
-            const disabledRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
+        recipButton.setDisabled(true);
+        declineButton.setDisabled(true);
+        const disabledRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
 
+        // Decline
+        if (interaction.customId.startsWith('rp_dec_')) {
             const declinedEmbed = new EmbedBuilder()
                 .setTitle(`${targetUser.username} declined to ${actionVerb}`)
                 .setDescription(`${targetUser.username} declined to ${actionVerb} ${actor.username}.`)
                 .setColor('Grey')
-                .addFields(
-                    { name: `${targetUser.username} - ${actionKey} received`, value: `${targetReceivedCount}`, inline: true }
-                )
                 .setTimestamp();
 
-            try {
-                await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
-            } catch (err) {
-                console.error('interaction.update failed (decline), falling back to message edit:', err);
-                try { await replyMessage.edit({ embeds: [declinedEmbed], components: [disabledRow] }); } catch (e) { try { await context.editReply({ embeds: [declinedEmbed], components: [disabledRow] }); } catch (e2) {/* ignore */} }
-            }
-
+            await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
             collector.stop();
             return;
         }
 
-        // Reciprocation
-        if (interaction.customId.startsWith('rp_rec_')) {
-            const db2 = await getDBInstance();
-            const users2 = db2.get('users') || {};
-            const actorData2 = users2[actor.id] || {};
-            const targetData2 = users2[targetUser.id] || {};
+        // Reciprocate
+        const users2 = db.get('users') || {};
+        const actorData2 = users2[actor.id] || {};
+        const targetData2 = users2[targetUser.id] || {};
 
-            actorData2.roleplay = actorData2.roleplay || {};
-            targetData2.roleplay = targetData2.roleplay || {};
+        actorData2.roleplay ??= {};
+        targetData2.roleplay ??= {};
 
-            const givenKeyActor = `${actionKey}Given`;
-            const receivedKeyActor = `${actionKey}Received`;
+        targetData2.roleplay[givenKey] = (targetData2.roleplay[givenKey] || 0) + 1;
+        actorData2.roleplay[receivedKey] = (actorData2.roleplay[receivedKey] || 0) + 1;
 
-            targetData2.roleplay[givenKeyActor] = (targetData2.roleplay[givenKeyActor] || 0) + 1;
-            actorData2.roleplay[receivedKeyActor] = (actorData2.roleplay[receivedKeyActor] || 0) + 1;
+        await db.set('users', {
+            ...users2,
+            [actor.id]: { ...actorData2, id: actor.id, name: actor.username },
+            [targetUser.id]: { ...targetData2, id: targetUser.id, name: targetUser.username }
+        });
 
-            await db2.set('users', { ...users2, [actor.id]: { ...actorData2, id: actor.id, name: actor.username }, [targetUser.id]: { ...targetData2, id: targetUser.id, name: targetUser.username } });
-
-            let recipGif = null;
+        let recipGif = null;
+        if (Array.isArray(gifs) && gifs.length > 0) {
+            recipGif = gifs[Math.floor(Math.random() * gifs.length)];
+        } else {
             try {
-                const fetchedR = await fetchAnimeGif(actionVerb);
-                if (fetchedR) recipGif = fetchedR;
-            } catch (e) {}
-            if (!recipGif) recipGif = gifs[Math.floor(Math.random() * gifs.length)];
-
-            const actorGivenCount2 = actorData2.roleplay[givenKey] || 0;
-            const actorReceivedCount2 = actorData2.roleplay[receivedKey] || 0;
-            const targetGivenCount2 = targetData2.roleplay[givenKey] || 0;
-            const targetReceivedCount2 = targetData2.roleplay[receivedKey] || 0;
-
-            const recipFilename = `${actionKey}_${targetUser.id}_${actor.id}_${Date.now()}.gif`;
-            const recipVerbThird = toThirdPerson(actionVerb);
-            const recipEmbed = new EmbedBuilder()
-                .setTitle(`${targetUser.username} ${recipVerbThird} ${actor.username}`)
-                .setDescription(`${targetUser.username} ${gerund} ${actor.username} in return.`)
-                .setImage(`attachment://${recipFilename}`)
-                .setColor('DarkVividPink')
-                .addFields(
-                    { name: `${targetUser.username} - ${actionKey} given`, value: `${targetGivenCount2}`, inline: true }
-                )
-                .setTimestamp();
-
-            recipButton.setDisabled(true);
-            declineButton.setDisabled(true);
-            const disabledRow2 = new ActionRowBuilder().addComponents(recipButton, declineButton);
-
-            // Attempt to download recip GIF as buffer first
-            let recipFile = null;
-            try {
-                const buf2 = await downloadAsBuffer(recipGif);
-                if (buf2) recipFile = { attachment: buf2, name: recipFilename };
-            } catch (e) { recipFile = null; }
-            const recipFiles = recipFile ? [recipFile] : [{ attachment: recipGif, name: recipFilename }];
-            try {
-                await interaction.update({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles });
-            } catch (err) {
-                console.error('interaction.update failed (reciprocate), falling back to message edit:', err);
-                try { await replyMessage.edit({ embeds: [recipEmbed], components: [disabledRow2], files: recipFiles }); } catch (e) { try { await context.editReply({ embeds: [recipEmbed], components: [disabledRow2] }); } catch (e2) {/* ignore */} }
-            }
-            collector.stop();
+                recipGif = await fetchAnimeGif(actionVerb);
+            } catch {}
         }
+
+        const recipEmbed = new EmbedBuilder()
+            .setTitle(`${targetUser.username} ${verbThird} ${actor.username}`)
+            .setDescription(`${targetUser.username} ${gerund} ${actor.username} in return.`)
+            .setColor('DarkVividPink')
+            .addFields({
+                name: `${targetUser.username} - ${actionKey} given`,
+                value: `${targetData2.roleplay[givenKey]}`,
+                inline: true
+            })
+            .setImage(recipGif)
+            .setTimestamp();
+
+        await interaction.update({ embeds: [recipEmbed], components: [disabledRow] });
+        collector.stop();
     });
 
     collector.on('end', async () => {
         try {
             recipButton.setDisabled(true);
             declineButton.setDisabled(true);
-            const disabledRowEnd = new ActionRowBuilder().addComponents(recipButton, declineButton);
-            await context.editReply({ components: [disabledRowEnd] });
-        } catch (e) {
-            // ignore if message already updated elsewhere
-        }
+            await context.editReply({
+                components: [new ActionRowBuilder().addComponents(recipButton, declineButton)]
+            });
+        } catch {}
     });
 }
 
@@ -1122,6 +1083,193 @@ async function deletechannel(context) {
     }
 }
 
+async function shop(context) {
+    
+    const optionsSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId('shop_options_select')
+    .setPlaceholder('Select a shop category')
+    .addOptions([
+        {
+            label: 'Items',
+            description: 'Buy items for various uses',
+            value: 'shop_items',
+        },
+        {
+            label: 'Cosmetics',
+            description: 'Customize your profile with cosmetics',
+            value: 'shop_cosmetics',
+        },
+        {
+            label: 'Boosts',
+            description: 'Get temporary advantages with boosts',
+            value: 'shop_boosts',
+        },
+        {
+            label: 'Subscriptions',
+            description: 'Recurring benefits with subscriptions',
+            value: 'shop_subscriptions',
+        },
+    ]);
+
+    const optionsRow = new ActionRowBuilder().addComponents(optionsSelectMenu);
+
+    const shopItemsBuyRow = new StringSelectMenuBuilder()
+    .setCustomId('shop_items_buy_select')
+    .setPlaceholder('Select an item to buy')
+    .addOptions([
+        {
+            label: 'Health Potion - $100',
+            description: 'Restores 50 HP',
+            value: 'buy_health_potion',
+        },
+        {
+            label: 'Mana Elixir - $150',
+            description: 'Restores 30 MP',
+            value: 'buy_mana_elixir',
+        },
+        {
+            label: 'Stamina Boost - $200',
+            description: 'Increases stamina by 20 for 1 hour',
+            value: 'buy_stamina_boost',
+        },
+        {
+            label: 'Shield - $250',
+            description: 'Provides 15 defense for 30 minutes',
+            value: 'buy_shield',
+        },
+        {
+            label: 'Sword - $300',
+            description: 'Increases attack by 10 for 1 hour',
+            value: 'buy_sword',
+        },
+        {
+            label: 'Magic Scroll - $500',
+            description: 'Unlocks a random spell',
+            value: 'buy_magic_scroll',
+        },
+    ]);
+
+    const shopItemsBuyRowAction = new ActionRowBuilder().addComponents(shopItemsBuyRow);
+
+    const shop_cosmeticsSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId('shop_cosmetics_select')
+    .setPlaceholder('Select a cosmetic to view')
+    .addOptions([
+        {
+            label: 'Coming Soon',
+            description: 'Cosmetics are coming soon!',
+            value: 'cosmetic_coming_soon',
+        },
+    ]);
+
+    const shopCosmeticsRow = new ActionRowBuilder().addComponents(shop_cosmeticsSelectMenu);
+
+    const embed = new EmbedBuilder()
+    .setTitle('Shop')
+    .setColor('DarkRed')
+    .setDescription('Welcome to the shop!')
+    .addFields({
+        name: 'Shop options',
+        value: '`Items` - You can buy items here to use for various things.\n`Cosmetics` - You can buy cosmetics here to customize your profile.\n`Boosts` - You can buy boosts here to get temporary advantages.\n`Subscriptions` - You can buy subscriptions here for recurring benefits.',
+    })
+    .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
+    .setImage('https://i.pinimg.com/1200x/65/01/2a/65012a6622f03842d05ef5aea5616698.jpg')
+    .setTimestamp();
+
+    try {
+        await context.reply({
+            embeds: [embed],
+            components: [optionsRow],
+        });
+    } catch (error) {
+        console.error('Error sending shop embed:', error);
+        return context.reply({ content: 'There was an error displaying the shop. Please try again later.', ephemeral: true });
+    }
+
+    const replyMessage = await context.interaction.fetchReply();
+
+    const shopCollector = replyMessage.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        time: 60000,
+        filter: (i) => i.user.id === context.user.id,
+    });
+
+    shopCollector.on('collect', async (i) => {
+        if (i.customId !== 'shop_options_select') return;
+
+        const selectedValue = i.values[0];
+
+        switch (selectedValue) {
+            case 'shop_items': {
+                
+                const shopItemsEmbed = new EmbedBuilder()
+                .setColor('DarkPurple')
+                .setTitle('Shop - Items')
+                .setDescription('Here are the available items for purchase:')
+                .addFields(
+                    {
+                        name: 'Health Potion',
+                        value: 'Restores 50 HP, price: $100'
+                    },
+                    {
+                        name: 'Mana Elixir',
+                        value: 'Restores 30 MP, price: $150'
+                    },
+                    {
+                        name: 'Stamina Boost',
+                        value: 'Increases stamina by 20 for 1 hour, price: $200'
+                    },
+                    {
+                        name: 'Shield',
+                        value: 'Provides 15 defense for 30 minutes, price: $250'
+                    },
+                    {
+                        name: 'Sword',
+                        value: 'Increases attack by 10 for 1 hour, price: $300'
+                    },
+                    {
+                        name: 'Magic Scroll',
+                        value: 'Unlocks a random spell, price: $500'
+                    },
+                )
+                .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
+                .setImage('https://i.pinimg.com/736x/7b/8f/a0/7b8fa04f05b13aface4d105d671254fc.jpg')
+                .setTimestamp();
+                
+                try {
+                    await i.update({
+                        embeds: [shopItemsEmbed],
+                        components: [shopItemsBuyRowAction, optionsRow],
+                    });
+                } catch (error) {
+                    console.error('Error updating shop items embed:', error);
+                    return i.reply({ content: 'There was an error displaying the shop items. Please try again later.', ephemeral: true });
+                }
+                break;
+            }
+            case 'shop_cosmetics': {
+                const cosmeticsEmbed = new EmbedBuilder()
+                .setColor('DarkGreen')
+                .setTitle('Shop - Cosmetics')
+                .setDescription('Cosmetics are coming soon! Stay tuned for updates.')
+                .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
+                .setTimestamp();
+
+                try {
+                    await i.update({
+                        embeds: [cosmeticsEmbed],
+                        components: [shopCosmeticsRow, optionsRow],
+                    });
+                } catch (error) {
+                    console.error('Error updating cosmetics embed:', error);
+                    return i.reply({ content: 'There was an error displaying the cosmetics. Please try again later.', ephemeral: true });
+                }
+                break;
+            }
+        }
+    })
+}
+
 module.exports = {
     ping,
     help,
@@ -1145,4 +1293,5 @@ module.exports = {
     kick,
     createchannel,
     deletechannel,
+    shop,
 };
