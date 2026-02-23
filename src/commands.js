@@ -5,7 +5,7 @@ const roleplayGifs = require('./roleplay_gifs.json');
 
 const apid = ["292385626773258240", "961370035555811388"]
 
-const activeEffects = new Map();
+const Effects = new Map();
 
 // Fetch anime GIF from Tenor (Node 18+ has global fetch). Falls back to null on error.
 async function fetchAnimeGif(term) {
@@ -173,7 +173,7 @@ async function help(context) {
                 },
                 {
                     name: 'Social commands',
-                    value: '`/call` - Call a random user across the whole of discord.\n`/hangout` - Hangup on a random user across the whole of discord.\n`/friend` - send your username to people so they can add you.'
+                    value: '`/call` - Call a random user across the whole of discord.\n`/hangup` - Hangup on a random user across the whole of discord.\n`/friend` - send your username to people so they can add you.'
                 },
             )
             .setTimestamp();
