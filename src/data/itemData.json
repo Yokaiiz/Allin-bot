@@ -15,5 +15,12 @@
         "duration": 1200000,
         "effect": "luck_boost_35",
 		"price": 100000
-    }
+    },
+	{
+		"name": "Iron Sword",
+		"id": "iron_sword",
+		"description": "A basic sword made of iron, allowing you to deal damage in fights more effectively.",
+		"rarity": "C",
+		"price": 1500
+ 	}
 ]
