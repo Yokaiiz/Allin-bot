@@ -161,7 +161,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.\n`/set_nickname` - Changes a user\'s nickname in the server.'
                 },
                 {
                     name: 'Economy Commands',
@@ -170,7 +170,11 @@ async function help(context) {
                 {
                     name: 'Roleplay Commands',
                     value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.\n`/slap <target>` - Slap another user.\n`/punch <target>` - Punch another user.\n`/kill <target>` - Kill another user.'
-                }
+                },
+                {
+                    name: 'Social commands',
+                    value: '`/call` - Call a random user across the whole of discord.\n`/hangout` - Hangup on a random user across the whole of discord.\n`/friend` - send your username to people so they can add you.'
+                },
             )
             .setTimestamp();
 
@@ -1322,7 +1326,7 @@ async function set_nickname(context) {
         });
     }
 
-    if (!member.roles.highest.position < context.guild.members.me.roles.highest.position) {
+    if (member.roles.highest.position >= context.guild.members.me.roles.highest.position) {
         return context.reply({
             content: 'I cannot change the nickname of that user because their highest role is higher or equal to mine.',
             ephemeral: true
