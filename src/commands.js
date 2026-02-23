@@ -1257,6 +1257,88 @@ async function purge(context) {
     });
 }
 
+async function set_nickname(context) {
+    const nickname = context.options.getString('nickname');
+    const user = context.options.getUser('user');
+
+    if (!context.guild) {
+        try {
+            return context.reply({
+                content: 'This command is exclusive to servers/guilds.',
+                ephemeral: true
+            });
+        } catch (err) {
+            console.log('Error replying about guild-only command:', err);
+            return context.reply({
+                content: 'Please try again later.',
+                ephemeral: true
+            });
+        }
+    }
+
+    if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ChangeNickname)) {
+        try {
+            return context.reply({
+                content: 'I do not have permission to change nicknames in this server.',
+                ephemeral: true
+            });
+        } catch (err) {
+            console.log('Error replying about missing permissions:', err);
+            return context.reply({
+                content: 'Please try again later.',
+                ephemeral: true
+            });
+        }
+
+    }
+
+    let member;
+    try {
+        member = await context.guild.members.fetch(user.id);
+    } catch (err) {
+        console.error('Error fetching member for nickname change:', err);
+        return context.reply({
+            content: 'Could not find the specified user in this server.',
+            ephemeral: true
+        });
+    }
+
+    if (!member) {
+        return context.reply({
+            content: 'Could not find the specified user in this server.',
+            ephemeral: true
+        });
+    }
+
+    if (!member.roles.highest.position < context.guild.members.me.roles.highest.position) {
+        return context.reply({
+            content: 'I cannot change the nickname of that user because their highest role is higher or equal to mine.',
+            ephemeral: true
+        });
+    }
+
+    if (member.roles.highest.position >= context.guild.members.cache.get(context.user.id).roles.highest.position) {
+        return context.reply({
+            content: 'You cannot change the nickname of that user because their highest role is higher or equal to yours.',
+            ephemeral: true
+        });
+    }
+
+    try {
+        await member.setNickname(nickname, `Nickname change requested by ${context.user.tag} via bot command`);
+        return context.reply({
+            content: `Successfully changed ${member.user.tag}'s nickname to **${nickname}**.`,
+            ephemeral: false
+        });
+    } catch (err) {
+        console.error('Error setting nickname:', err);
+        return context.reply({
+            content: 'There was an error changing the nickname. Please ensure I have the correct permissions and that the nickname is valid.',
+            ephemeral: true
+        });
+    }
+}
+
 module.exports = {
     ping,
     help,
@@ -1282,4 +1364,5 @@ module.exports = {
     deletechannel,
     shop,
     purge,
+    set_nickname,
 };

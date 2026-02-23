@@ -36,6 +36,7 @@ const {
     deletechannel,
     shop,
     purge,
+    set_nickname,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -297,6 +298,23 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('set_nickname')
+        .setDescription('Sets the nickname of a user.')
+        .setContexts(0)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user whose nickname will be changed.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('nickname')
+            .setDescription('The new nickname for the user.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -395,6 +413,10 @@ const commandHandlers = {
     purge: {
         execute: purge,
         cooldown: 5000
+    },
+    set_nickname: {
+        execute: set_nickname,
+        cooldown: 1000
     },
 };
 
