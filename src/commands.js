@@ -1120,7 +1120,7 @@ async function shop(context) {
     const mainShopEmbed = new EmbedBuilder()
     .setTitle('🛍️ Shop')
     .setColor('Green')
-    .setDescription(`**Your Balance:** $${currency}\n\n${description.join('\n\n')}`)
+    .setDescription(`**Your Balance:** $${currency.toLocaleString()}\n\n${description.join('\n\n')}`)
     .setTimestamp();
     
     try {
