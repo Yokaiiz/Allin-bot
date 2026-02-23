@@ -32,6 +32,9 @@ const {
     ban,
     inv,
     use,
+    call,
+    hangup,
+    friend,
     kick,
     createchannel,
     deletechannel,
@@ -300,6 +303,21 @@ const commandDefinitions = [
         )
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('call')
+        .setDescription('Join the global call relay. Messages you send will be relayed to other callers via webhooks.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('hangup')
+        .setDescription('Leave the global call relay.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('friend')
+        .setDescription('Send your username/tag to your current call peer (if any).')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('set_nickname')
         .setDescription('Sets the nickname of a user.')
         .setContexts(0)
@@ -419,6 +437,18 @@ const commandHandlers = {
         execute: set_nickname,
         cooldown: 1000
     },
+    call: {
+        execute: call,
+        cooldown: 1000
+    },
+    hangup: {
+        execute: hangup,
+        cooldown: 1000
+    },
+    friend: {
+        execute: friend,
+        cooldown: 1000
+    },
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -438,6 +468,147 @@ function registerClientEventHandlers(client) {
     });
 
     client.on('messageCreate', async (message) => {
+        // ignore bots and webhook-originated messages
+        if (!message || !message.author) return;
+        if (message.author.bot || message.webhookId) return;
+
+        // Relay: forward messages from any speaker in a call channel (exclude bots)
+        try {
+            const db = await getDBInstance();
+            const users = db.get('users') || {};
+
+            // find any "owner" entries whose call.channelId matches this message channel
+            const owners = Object.entries(users).filter(([uid, u]) => u && u.call && u.call.channelId === message.channel.id && u.call.peerId);
+            if (owners.length === 0) {
+                // nothing to relay for this channel
+            } else {
+                // debug stickers for diagnosis
+                if (message.stickers && message.stickers.size > 0) {
+                    try {
+                        console.debug('CallRelay: message.stickers', Array.from(message.stickers.values()).map(s => ({ id: s.id, name: s.name, format_type: s.format_type })));
+                    } catch (e) { /* ignore */ }
+                }
+
+                // build base relay content (include attachments)
+                let relayContentBase = message.content || '';
+                if (message.attachments && message.attachments.size > 0) {
+                    for (const att of message.attachments.values()) {
+                        relayContentBase += `\n${att.url}`;
+                    }
+                }
+
+                // helper to download sticker buffer
+                async function fetchStickerBuffer(sticker) {
+                    try {
+                        const fmt = sticker.format_type || sticker.format || 1;
+                        let ext = 'png';
+                        if (fmt === 2) ext = 'png';
+                        if (fmt === 3) ext = 'json';
+                        const url = `https://cdn.discordapp.com/stickers/${sticker.id}.${ext}`;
+                        const res = await fetch(url);
+                        if (!res.ok) return null;
+                        const ab = await res.arrayBuffer();
+                        return { buffer: Buffer.from(ab), ext };
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                for (const [ownerId, owner] of owners) {
+                    try {
+                        const peerId = owner.call.peerId;
+                        const peer = users[peerId] || {};
+                        if (!peer || !peer.call || peer.call.peerId !== ownerId) {
+                            // invalid pairing - cleanup
+                            delete users[ownerId].call;
+                            await db.set('users', users);
+                            continue;
+                        }
+
+                        const destChannelId = peer.call.channelId;
+                        if (!destChannelId) continue;
+                        if (destChannelId === message.channel.id) continue; // avoid echoing back
+
+                        console.debug(`CallRelay: forwarding message from speaker ${message.author.id} (channel ${message.channel.id}) to peer ${peerId} in channel ${destChannelId}`);
+
+                        const channel = await client.channels.fetch(destChannelId).catch(() => null);
+                        if (!channel) {
+                            console.warn('CallRelay: destination channel not found', destChannelId);
+                            continue;
+                        }
+                        if (typeof channel.fetchWebhooks !== 'function') {
+                            console.warn('CallRelay: channel does not support webhooks', destChannelId);
+                            continue;
+                        }
+
+                        // find or create webhook owned by the bot
+                        let webhook = null;
+                        try {
+                            const hooks = await channel.fetchWebhooks();
+                            webhook = hooks.find(h => h.owner && h.owner.id === client.user.id && h.name && h.name.startsWith('CallRelay'));
+                        } catch (e) {
+                            console.warn('CallRelay: fetchWebhooks failed for', destChannelId, e?.message || e);
+                        }
+
+                        if (!webhook) {
+                            try {
+                                webhook = await channel.createWebhook({ name: `CallRelay-${client.user.username}`, avatar: client.user.displayAvatarURL() });
+                                console.debug('CallRelay: created webhook', webhook.id, 'in', destChannelId);
+                            } catch (e) {
+                                console.warn('CallRelay: cannot create webhook in', destChannelId, e?.message || e);
+                                continue; // cannot create webhook
+                            }
+                        } else {
+                            console.debug('CallRelay: using existing webhook', webhook.id, 'in', destChannelId);
+                        }
+
+                        const sendOptions = {
+                            content: relayContentBase || '\u200B',
+                            username: message.member ? message.member.displayName : message.author.username,
+                            avatarURL: message.author.displayAvatarURL({ forceStatic: false })
+                        };
+
+                        if (message.stickers && message.stickers.size > 0) {
+                            const files = [];
+                            for (const s of message.stickers.values()) {
+                                const fetched = await fetchStickerBuffer(s).catch(() => null);
+                                if (fetched && fetched.buffer) {
+                                    if (fetched.ext === 'json') {
+                                        sendOptions.content += `\n[Sticker: ${s.name || s.id} - LOTTIE not supported]`;
+                                        continue;
+                                    }
+                                    files.push({ attachment: fetched.buffer, name: `sticker_${s.id}.${fetched.ext}` });
+                                } else {
+                                    sendOptions.content += `\n[Sticker: ${s.name || s.id}]`;
+                                }
+                            }
+                            if (files.length) sendOptions.files = files;
+                        }
+
+                        try {
+                            await webhook.send(sendOptions);
+                            console.debug('CallRelay: sent webhook message to', destChannelId);
+                        } catch (sendErr) {
+                            console.warn('CallRelay: webhook.send failed, will fallback to channel.send', destChannelId, sendErr?.message || sendErr);
+                            try {
+                                if (channel && typeof channel.send === 'function') {
+                                    await channel.send({ content: `${message.member ? message.member.displayName : message.author.username}: ${relayContentBase}` });
+                                    console.debug('CallRelay: fallback channel.send succeeded to', destChannelId);
+                                }
+                            } catch (fallbackErr) {
+                                console.warn('CallRelay: fallback channel.send also failed for', destChannelId, fallbackErr?.message || fallbackErr);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Call relay error sending to peer', ownerId, err);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Call relay error', err);
+        }
+
+        // legacy prefix commands (keep existing behaviour)
         const prefix = "ali"
         if (!message.content.startsWith(prefix)) return;
 
@@ -461,6 +632,45 @@ function registerClientEventHandlers(client) {
             const dbFile = path.resolve(__dirname, '../db.json');
             const adapter = new JSONFile(dbFile);
             await getDBInstance(adapter, { users: {} });
+            // perform cleanup of stale call state persisted in DB (in case bot restarted)
+            try {
+                const db = await getDBInstance();
+                const users = db.get('users') || {};
+                let waiting = db.get('callWaiting') || {};
+                let cleaned = 0;
+
+                // clean user call entries that are not mutual
+                for (const [uid, udata] of Object.entries(users)) {
+                    if (!udata || !udata.call) continue;
+                    const peerId = udata.call.peerId;
+                    if (!peerId || !users[peerId] || !users[peerId].call || users[peerId].call.peerId !== uid) {
+                        delete users[uid].call;
+                        cleaned++;
+                    }
+                }
+
+                // clean waiting queue entries referencing missing users or users already in calls
+                for (const [gId, wait] of Object.entries(waiting)) {
+                    if (!wait || !wait.userId) {
+                        delete waiting[gId];
+                        cleaned++;
+                        continue;
+                    }
+                    const wuid = wait.userId;
+                    if (!users[wuid] || (users[wuid].call && users[wuid].call.peerId)) {
+                        delete waiting[gId];
+                        cleaned++;
+                    }
+                }
+
+                if (cleaned > 0) {
+                    await db.set('users', users);
+                    await db.set('callWaiting', waiting);
+                    console.log(`Cleaned ${cleaned} stale call/waiting entries from DB`);
+                }
+            } catch (e) {
+                console.warn('CallRelay: cleanup on ready failed', e?.message || e);
+            }
             console.log('started db ');
             
             await deployCommands();

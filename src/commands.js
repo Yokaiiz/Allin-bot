@@ -1,5 +1,5 @@
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType } = require("discord.js");
-const { getDBInstance } = require('./db.js');
+const { getDBInstance, autoRegUser } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
 
 
@@ -1351,6 +1351,231 @@ async function set_nickname(context) {
     }
 }
 
+async function call(context) {
+    if (!context.guild) return context.reply({ content: 'This command must be used in a server/guild.', ephemeral: true });
+
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const waiting = db.get('callWaiting') || {};
+    const userId = context.user.id;
+    await autoRegUser(userId);
+    users[userId] = users[userId] || {};
+
+    const guildId = context.guild.id;
+    const channelId = context.channel?.id || (context.interaction ? context.interaction.channelId : null);
+
+    // cleanup stale call state for this user if present
+    if (users[userId].call && users[userId].call.peerId) {
+        const peerId = users[userId].call.peerId;
+        const peer = users[peerId];
+        if (!peer || !peer.call || peer.call.peerId !== userId) {
+            delete users[userId].call;
+            await db.set('users', users);
+        } else {
+            return context.reply({ content: 'You are already connected in a call. Use /hangup to disconnect.', ephemeral: true });
+        }
+    }
+
+    // if this user is already waiting
+    const existingWaiter = waiting[guildId];
+    if (existingWaiter && existingWaiter.userId === userId) {
+        console.debug(`Call: user ${userId} attempted to wait again in guild ${guildId}`);
+        return context.reply({ content: 'You are already waiting for a partner in this server. Use /hangup to cancel.', ephemeral: true });
+    }
+
+    // if there is someone waiting, prefer same-guild waiter but allow cross-server pairing
+    let waiter = waiting[guildId];
+    let pairedWith = null;
+
+    if (waiter && waiter.userId && waiter.userId !== userId) {
+        pairedWith = { key: guildId, entry: waiter };
+    } else {
+        // search for any other waiting user across all guilds
+        for (const [key, entry] of Object.entries(waiting)) {
+            if (!entry || !entry.userId) continue;
+            if (entry.userId === userId) continue;
+            pairedWith = { key, entry };
+            break;
+        }
+    }
+
+    if (pairedWith) {
+        const otherId = pairedWith.entry.userId;
+        const otherChannelId = pairedWith.entry.channelId;
+        // validate waiter still exists and is not in a call
+        if (users[otherId] && (!users[otherId].call || !users[otherId].call.peerId)) {
+            users[userId].call = { peerId: otherId, guildId, channelId };
+            users[otherId] = users[otherId] || {};
+            users[otherId].call = { peerId: userId, guildId: users[otherId].call && users[otherId].call.channelId ? users[otherId].call.guildId : guildId, channelId: otherChannelId };
+
+            // remove waiting entry
+            delete waiting[pairedWith.key];
+
+            await db.set('users', users);
+            await db.set('callWaiting', waiting);
+
+            // notify both parties (attempt channel send, fallback to DM)
+            try {
+                const client = context.interaction ? context.interaction.client : context.message.client;
+                const otherChannel = await client.channels.fetch(otherChannelId).catch(() => null);
+                if (otherChannel) {
+                    try {
+                        await otherChannel.send({ content: `📞 You are now connected with <@${userId}>. Use /hangup to disconnect.` });
+                    } catch (e) {
+                        console.warn('Call: failed to notify otherChannel, will attempt DM', otherChannelId, e?.message || e);
+                        try {
+                            const otherUser = await client.users.fetch(otherId).catch(() => null);
+                            if (otherUser) await otherUser.send(`📞 You are now connected with <@${userId}>. Use /hangup to disconnect.`).catch(() => {});
+                        } catch (e2) {
+                            console.warn('Call: failed to DM other user', otherId, e2?.message || e2);
+                        }
+                    }
+                } else {
+                    // channel not fetchable - DM the other user
+                    try {
+                        const otherUser = await client.users.fetch(otherId).catch(() => null);
+                        if (otherUser) await otherUser.send(`📞 You are now connected with <@${userId}>. Use /hangup to disconnect.`).catch(() => {});
+                    } catch (e3) {
+                        console.warn('Call: failed to notify other user by DM', otherId, e3?.message || e3);
+                    }
+                }
+            } catch (notifyErr) {
+                console.warn('Call: notify both parties failed', notifyErr?.message || notifyErr);
+            }
+
+            console.debug(`Call: paired ${userId} with ${otherId} (cross-server=${pairedWith.key !== guildId})`);
+
+            return context.reply({ content: `📞 Connected to <@${otherId}>. Messages you send here will be relayed to them. Use /hangup to end.` });
+        } else {
+            // invalid waiter, remove and fall through to add this user
+            delete waiting[pairedWith.key];
+            await db.set('callWaiting', waiting);
+        }
+    }
+
+    // otherwise place this user in waiting queue for this guild
+    waiting[guildId] = { userId, channelId };
+    await db.set('callWaiting', waiting);
+    console.debug(`Call: user ${userId} is now waiting in guild ${guildId} (channel ${channelId})`);
+
+    return context.reply({ content: '📞 You are now waiting for another user in this server to /call. Use /hangup to cancel.' });
+}
+
+async function hangup(context) {
+    if (!context.guild) return context.reply({ content: 'This command must be used in a server/guild.', ephemeral: true });
+
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const waiting = db.get('callWaiting') || {};
+    const userId = context.user.id;
+    users[userId] = users[userId] || {};
+
+    const guildId = context.guild.id;
+
+    // if they were waiting in the queue, remove them
+    const waiter = waiting[guildId];
+    if (waiter && waiter.userId === userId) {
+        delete waiting[guildId];
+        await db.set('callWaiting', waiting);
+        return context.reply({ content: 'You left the waiting queue.', ephemeral: false });
+    }
+
+    // if in a paired call, disconnect both sides (validate peer)
+    const callInfo = users[userId].call;
+    if (!callInfo || !callInfo.peerId) {
+        return context.reply({ content: 'You are not currently in a call.', ephemeral: true });
+    }
+
+    const peerId = callInfo.peerId;
+    const peer = users[peerId] || {};
+    const peerChannelId = peer.call ? peer.call.channelId : null;
+
+    // cleanup this user's call regardless
+    delete users[userId].call;
+    // if peer points back, cleanup peer as well
+    if (peer && peer.call && peer.call.peerId === userId) delete users[peerId].call;
+
+    await db.set('users', users);
+
+    // notify peer if possible
+    try {
+        const client = context.interaction ? context.interaction.client : context.message.client;
+        if (peerChannelId) {
+            const ch = await client.channels.fetch(peerChannelId).catch(() => null);
+            if (ch) await ch.send({ content: `📴 <@${userId}> has hung up the call.` }).catch(() => {});
+        }
+    } catch (e) {}
+
+    return context.reply({ content: '📴 You have hung up the call.' });
+}
+
+async function friend(context) {
+    const db = await getDBInstance();
+    await autoRegUser(context.user.id);
+
+    const senderTag = context.user.tag || `${context.user.username}`;
+    const users = db.get('users') || {};
+    const senderData = users[context.user.id] || {};
+
+    // If the sender is in a call, send their tag to their peer
+    if (senderData.call && senderData.call.peerId) {
+        const peerId = senderData.call.peerId;
+        const messageText = `👋 Friend request from ${senderTag}\nAdd them by username/tag: **${senderTag}**`;
+        try {
+            const client = context.interaction ? context.interaction.client : context.message.client;
+            const peerData = users[peerId] || {};
+
+            // attempt to deliver into peer's active call channel
+            if (peerData.call && peerData.call.channelId) {
+                const destChannelId = peerData.call.channelId;
+                const channel = await client.channels.fetch(destChannelId).catch(() => null);
+                if (channel) {
+                    if (typeof channel.fetchWebhooks === 'function') {
+                        let webhook = null;
+                        try {
+                            const hooks = await channel.fetchWebhooks();
+                            webhook = hooks.find(h => h.owner && h.owner.id === client.user.id && h.name && h.name.startsWith('CallRelay'));
+                        } catch (e) { /* ignore */ }
+
+                        if (!webhook) {
+                            try {
+                                webhook = await channel.createWebhook({ name: `CallRelay-${client.user.username}`, avatar: client.user.displayAvatarURL() });
+                            } catch (e) { webhook = null; }
+                        }
+
+                        if (webhook) {
+                            await webhook.send({ content: messageText, username: senderTag, avatarURL: context.user.displayAvatarURL() }).catch(() => {});
+                            await context.reply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
+                            return;
+                        }
+                    }
+
+                    // fallback to channel.send
+                    try {
+                        await channel.send({ content: messageText }).catch(() => {});
+                        await context.reply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
+                        return;
+                    } catch (e) { /* ignore */ }
+                }
+            }
+
+            // fallback: DM the peer
+            try {
+                const fetched = await client.users.fetch(peerId).catch(() => null);
+                if (fetched) {
+                    await fetched.send({ content: messageText }).catch(() => {});
+                    await context.reply({ content: '✅ Friend request sent to your peer (via DM).', ephemeral: false });
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+        } catch (e) {
+            console.warn('Friend: error delivering to peer', e?.message || e);
+        }
+    }
+
+    return context.reply({ content: 'You are not currently in a call with a peer to send your tag to.', ephemeral: true });
+}
+
 module.exports = {
     ping,
     help,
@@ -1371,6 +1596,9 @@ module.exports = {
     kill,
     inv,
     use,
+    call,
+    hangup,
+    friend,
     kick,
     createchannel,
     deletechannel,
