@@ -788,11 +788,11 @@ async function use(context) {
     const itemData = context.getItemByName(itemNameInput);
     
     if (!itemData) {
-        return 
+        return context.reply({ content: `The item **${itemNameInput}** does not exist.`, ephemeral: true });
     }
 
     if (!itemData.duration || !itemData.effect) {
-        return 
+        return context.reply({ content: `The item **${itemData.name}** cannot be used.`, ephemeral: true });
     }
 
     const inventory = await context.getInventory();
@@ -802,7 +802,7 @@ async function use(context) {
 
     const itemInInventory = inventory.find(item => item.id === itemData.id);
     if (!itemInInventory || itemInInventory.quantity <= 0) {
-        return 
+        return context.reply({ content: `you don't have any **${itemData.name}** to use!`, ephemeral: true }); 
     }
     
 
@@ -1100,7 +1100,8 @@ async function shop(context) {
     }
 
     const description = items.map(item => {
-        return `**${item.name}** - $${item.price}\n-# > ${item.description}`;
+        const effectStr = item.effect ? `\n-# > **Effect:** ${item.description}` : `\n-# > ${item.description}`;
+        return `**${item.name}** - $${item.price.toLocaleString()} | *${item.rarity}*${effectStr}`;
     });
 
     const ItemSelect = new StringSelectMenuBuilder()
@@ -1108,7 +1109,7 @@ async function shop(context) {
     .setPlaceholder('Select an item to purchase')
     .addOptions(items.map(item => ({
         label: item.name,
-        description: `$${item.price} - ${item.description}`,
+        description: `Rarity: ${item.rarity} | Price: $${item.price.toLocaleString()} | Effect: ${item.effect || 'None'}`,
         value: item.id
     })));
 
@@ -1117,16 +1118,16 @@ async function shop(context) {
     );
 
     const mainShopEmbed = new EmbedBuilder()
-    .setTitle('Shop')
+    .setTitle('🛍️ Shop')
     .setColor('Green')
-    .setDescription(`You have **$${currency}**\n\n${description.join('\n\n')}`)
+    .setDescription(`**Your Balance:** $${currency}\n\n${description.join('\n\n')}`)
     .setTimestamp();
     
     try {
         await context.reply({
             embeds: [mainShopEmbed],
             components: [ItemSelectRow],
-            ephemeral: true,
+            ephemeral: false,
         });
     } catch (err) {
         console.error('Error replying with shop embed:', err);
@@ -1175,11 +1176,22 @@ async function shop(context) {
         };
         db.set('users', users);
 
+        const purchaseEmbed = new EmbedBuilder()
+            .setTitle('✅ Purchase Successful')
+            .setColor('Green')
+            .addFields(
+                { name: 'Item', value: `**${selectedItem.name}**`, inline: true },
+                { name: 'Rarity', value: selectedItem.rarity, inline: true },
+                { name: 'Price Paid', value: `$${selectedItem.price.toLocaleString()}`, inline: true },
+                { name: 'New Balance', value: `$${(currency - selectedItem.price).toLocaleString()}`, inline: true }
+            )
+            .setTimestamp();
+
         try {
-            await i.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price}.`, ephemeral: true });
+            await i.reply({ embeds: [purchaseEmbed], ephemeral: true });
         } catch (err) {
             console.error('Error replying about successful purchase:', err);
-            try { await context.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price}.`, ephemeral: true }); } catch (e) {}
+            try { await context.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price.toLocaleString()}.`, ephemeral: true }); } catch (e) {}
         }
     })
 }

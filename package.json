@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "start-dev": "set NODE_TLS_REJECT_UNAUTHORIZED=0 && node src/index.js"
   },
   "dependencies": {
     "@discordjs/builders": "^1.7.0",
