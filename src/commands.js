@@ -5,7 +5,7 @@ const roleplayGifs = require('./roleplay_gifs.json');
 
 const apid = ["292385626773258240", "961370035555811388"]
 
-const Effects = new Map();
+const activeEffects = new Map();
 
 // Fetch anime GIF from Tenor (Node 18+ has global fetch). Falls back to null on error.
 async function fetchAnimeGif(term) {
@@ -324,8 +324,8 @@ async function profile(context) {
     .setColor('DarkVividPink')
     .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
     .addFields(
-        { name: 'Currency', value: `$${currency}`, inline: false },
-        { name: 'Total Dailies Claimed', value: `${dailyCount}`, inline: false },
+        { name: 'Currency', value: `$${currency.toLocaleString()}`, inline: false },
+        { name: 'Total Dailies Claimed', value: `${dailyCount.toLocaleString()}`, inline: false },
         { name: 'Last Daily Claim', value: lastDaily ? new Date(lastDaily).toUTCString() : 'Never', inline: false },
     )
     .setTimestamp();
@@ -1176,7 +1176,10 @@ async function shop(context) {
         users[context.user.id] = {
             ...userData,
             currency: currency - selectedItem.price,
-            inventory: [...(userData.inventory || []), selectedItem.id]
+            inventory: {
+                ...(userData.inventory || {}),
+                [selectedItem.id]: (userData.inventory?.[selectedItem.id] || 0) + 1
+            }
         };
         db.set('users', users);
 
