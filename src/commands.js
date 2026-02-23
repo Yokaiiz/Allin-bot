@@ -1084,188 +1084,102 @@ async function deletechannel(context) {
 }
 
 async function shop(context) {
-    
-    const optionsSelectMenu = new StringSelectMenuBuilder()
-    .setCustomId('shop_options_select')
-    .setPlaceholder('Select a shop category')
-    .addOptions([
-        {
-            label: 'Items',
-            description: 'Buy items for various uses',
-            value: 'shop_items',
-        },
-        {
-            label: 'Cosmetics',
-            description: 'Customize your profile with cosmetics',
-            value: 'shop_cosmetics',
-        },
-        {
-            label: 'Boosts',
-            description: 'Get temporary advantages with boosts',
-            value: 'shop_boosts',
-        },
-        {
-            label: 'Subscriptions',
-            description: 'Recurring benefits with subscriptions',
-            value: 'shop_subscriptions',
-        },
-    ]);
+    const items = context.getItemData();
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    const currency = userData.currency || 0;
 
-    const optionsRow = new ActionRowBuilder().addComponents(optionsSelectMenu);
+    if (!items || items.length === 0) {
+        try {
+            return context.reply({ content: 'The shop is closed, it currently has no items.'});
+        } catch (err) {
+            console.error('Error replying about empty shop:', err);
+            return context.reply({ content: 'Please try again later.'})
+        }
+    }
 
-    const shopItemsBuyRow = new StringSelectMenuBuilder()
-    .setCustomId('shop_items_buy_select')
-    .setPlaceholder('Select an item to buy')
-    .addOptions([
-        {
-            label: 'Health Potion - $100',
-            description: 'Restores 50 HP',
-            value: 'buy_health_potion',
-        },
-        {
-            label: 'Mana Elixir - $150',
-            description: 'Restores 30 MP',
-            value: 'buy_mana_elixir',
-        },
-        {
-            label: 'Stamina Boost - $200',
-            description: 'Increases stamina by 20 for 1 hour',
-            value: 'buy_stamina_boost',
-        },
-        {
-            label: 'Shield - $250',
-            description: 'Provides 15 defense for 30 minutes',
-            value: 'buy_shield',
-        },
-        {
-            label: 'Sword - $300',
-            description: 'Increases attack by 10 for 1 hour',
-            value: 'buy_sword',
-        },
-        {
-            label: 'Magic Scroll - $500',
-            description: 'Unlocks a random spell',
-            value: 'buy_magic_scroll',
-        },
-    ]);
+    const description = items.map(item => {
+        return `**${item.name}** - $${item.price}\n-# > ${item.description}`;
+    });
 
-    const shopItemsBuyRowAction = new ActionRowBuilder().addComponents(shopItemsBuyRow);
+    const ItemSelect = new StringSelectMenuBuilder()
+    .setCustomId('shop_select')
+    .setPlaceholder('Select an item to purchase')
+    .addOptions(items.map(item => ({
+        label: item.name,
+        description: `$${item.price} - ${item.description}`,
+        value: item.id
+    })));
 
-    const shop_cosmeticsSelectMenu = new StringSelectMenuBuilder()
-    .setCustomId('shop_cosmetics_select')
-    .setPlaceholder('Select a cosmetic to view')
-    .addOptions([
-        {
-            label: 'Coming Soon',
-            description: 'Cosmetics are coming soon!',
-            value: 'cosmetic_coming_soon',
-        },
-    ]);
+    const ItemSelectRow = new ActionRowBuilder().addComponents(
+        ItemSelect
+    );
 
-    const shopCosmeticsRow = new ActionRowBuilder().addComponents(shop_cosmeticsSelectMenu);
-
-    const embed = new EmbedBuilder()
+    const mainShopEmbed = new EmbedBuilder()
     .setTitle('Shop')
-    .setColor('DarkRed')
-    .setDescription('Welcome to the shop!')
-    .addFields({
-        name: 'Shop options',
-        value: '`Items` - You can buy items here to use for various things.\n`Cosmetics` - You can buy cosmetics here to customize your profile.\n`Boosts` - You can buy boosts here to get temporary advantages.\n`Subscriptions` - You can buy subscriptions here for recurring benefits.',
-    })
-    .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
-    .setImage('https://i.pinimg.com/1200x/65/01/2a/65012a6622f03842d05ef5aea5616698.jpg')
+    .setColor('Green')
+    .setDescription(`You have **$${currency}**\n\n${description.join('\n\n')}`)
     .setTimestamp();
-
+    
     try {
         await context.reply({
-            embeds: [embed],
-            components: [optionsRow],
+            embeds: [mainShopEmbed],
+            components: [ItemSelectRow],
+            ephemeral: true,
         });
-    } catch (error) {
-        console.error('Error sending shop embed:', error);
-        return context.reply({ content: 'There was an error displaying the shop. Please try again later.', ephemeral: true });
-    }
+    } catch (err) {
+        console.error('Error replying with shop embed:', err);
+        return context.reply({ content: 'There was an error displaying the shop. Please try again later.' });
+    };
 
     const replyMessage = await context.interaction.fetchReply();
 
-    const shopCollector = replyMessage.createMessageComponentCollector({
+    const collector = replyMessage.createMessageComponentCollector({
         componentType: ComponentType.StringSelect,
         time: 60000,
-        filter: (i) => i.user.id === context.user.id,
+        filter: (i) => i.customId === 'shop_select' && i.user.id === context.user.id
     });
 
-    shopCollector.on('collect', async (i) => {
-        if (i.customId !== 'shop_options_select') return;
+    collector.on('collect', async (i) => {
+        const selectedItemId = i.values[0];
+        const selectedItem = items.find(item => item.id === selectedItemId);
 
-        const selectedValue = i.values[0];
-
-        switch (selectedValue) {
-            case 'shop_items': {
-                
-                const shopItemsEmbed = new EmbedBuilder()
-                .setColor('DarkPurple')
-                .setTitle('Shop - Items')
-                .setDescription('Here are the available items for purchase:')
-                .addFields(
-                    {
-                        name: 'Health Potion',
-                        value: 'Restores 50 HP, price: $100'
-                    },
-                    {
-                        name: 'Mana Elixir',
-                        value: 'Restores 30 MP, price: $150'
-                    },
-                    {
-                        name: 'Stamina Boost',
-                        value: 'Increases stamina by 20 for 1 hour, price: $200'
-                    },
-                    {
-                        name: 'Shield',
-                        value: 'Provides 15 defense for 30 minutes, price: $250'
-                    },
-                    {
-                        name: 'Sword',
-                        value: 'Increases attack by 10 for 1 hour, price: $300'
-                    },
-                    {
-                        name: 'Magic Scroll',
-                        value: 'Unlocks a random spell, price: $500'
-                    },
-                )
-                .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
-                .setImage('https://i.pinimg.com/736x/7b/8f/a0/7b8fa04f05b13aface4d105d671254fc.jpg')
-                .setTimestamp();
-                
-                try {
-                    await i.update({
-                        embeds: [shopItemsEmbed],
-                        components: [shopItemsBuyRowAction, optionsRow],
-                    });
-                } catch (error) {
-                    console.error('Error updating shop items embed:', error);
-                    return i.reply({ content: 'There was an error displaying the shop items. Please try again later.', ephemeral: true });
-                }
-                break;
+        if (!selectedItem) {
+            try {
+                await i.reply({ content: 'Selected item not found.', ephemeral: true });
+            } catch (err) {
+                console.error('Error replying about selected item not found:', err);
+                try { await context.reply({ content: 'Selected item not found.', ephemeral: true }); } catch (e) {}
             }
-            case 'shop_cosmetics': {
-                const cosmeticsEmbed = new EmbedBuilder()
-                .setColor('DarkGreen')
-                .setTitle('Shop - Cosmetics')
-                .setDescription('Cosmetics are coming soon! Stay tuned for updates.')
-                .setThumbnail(context.user.displayAvatarURL({ dynamic: true }))
-                .setTimestamp();
+            return;
+        }
 
-                try {
-                    await i.update({
-                        embeds: [cosmeticsEmbed],
-                        components: [shopCosmeticsRow, optionsRow],
-                    });
-                } catch (error) {
-                    console.error('Error updating cosmetics embed:', error);
-                    return i.reply({ content: 'There was an error displaying the cosmetics. Please try again later.', ephemeral: true });
-                }
-                break;
+        if (currency < selectedItem.price) {
+            try {
+                await i.reply({ content: `You don't have enough money to buy **${selectedItem.name}**.`, ephemeral: true });
+            } catch (err) {
+                console.error('Error replying about insufficient funds:', err);
+                try { await context.reply({ content: `You don't have enough money to buy **${selectedItem.name}**.`, ephemeral: true }); } catch (e) {}
             }
+
+            return;
+        }
+
+        const db = await getDBInstance();
+        const users = db.get('users') || {};
+        users[context.user.id] = {
+            ...userData,
+            currency: currency - selectedItem.price,
+            inventory: [...(userData.inventory || []), selectedItem.id]
+        };
+        db.set('users', users);
+
+        try {
+            await i.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price}.`, ephemeral: true });
+        } catch (err) {
+            console.error('Error replying about successful purchase:', err);
+            try { await context.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price}.`, ephemeral: true }); } catch (e) {}
         }
     })
 }
