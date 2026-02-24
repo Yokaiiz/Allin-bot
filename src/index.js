@@ -454,6 +454,8 @@ const commandHandlers = {
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 let handlersRegistered = false;
+// short-lived cache to prevent duplicate relays: keys are `${originMessageId}:${destChannelId}`
+const recentForwards = new Set();
 function registerClientEventHandlers(client) {
     if (handlersRegistered) return;
     
@@ -585,15 +587,26 @@ function registerClientEventHandlers(client) {
                             if (files.length) sendOptions.files = files;
                         }
 
+                        const forwardKey = `${message.id}:${destChannelId}`;
+                        if (recentForwards.has(forwardKey)) {
+                            console.debug('CallRelay: duplicate forward skipped', forwardKey);
+                            continue;
+                        }
+
                         try {
                             await webhook.send(sendOptions);
                             console.debug('CallRelay: sent webhook message to', destChannelId);
+                            recentForwards.add(forwardKey);
+                            // expire after short period
+                            setTimeout(() => recentForwards.delete(forwardKey), 10000);
                         } catch (sendErr) {
                             console.warn('CallRelay: webhook.send failed, will fallback to channel.send', destChannelId, sendErr?.message || sendErr);
                             try {
                                 if (channel && typeof channel.send === 'function') {
                                     await channel.send({ content: `${message.member ? message.member.displayName : message.author.username}: ${relayContentBase}` });
                                     console.debug('CallRelay: fallback channel.send succeeded to', destChannelId);
+                                    recentForwards.add(forwardKey);
+                                    setTimeout(() => recentForwards.delete(forwardKey), 10000);
                                 }
                             } catch (fallbackErr) {
                                 console.warn('CallRelay: fallback channel.send also failed for', destChannelId, fallbackErr?.message || fallbackErr);
