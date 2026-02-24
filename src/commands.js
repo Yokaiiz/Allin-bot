@@ -1390,6 +1390,22 @@ async function call(context) {
         return context.reply({ content: 'You are already waiting for a partner in this server. Use /hangup to cancel.', ephemeral: true });
     }
 
+    // helper: check whether a guild currently has any active paired call
+    const hasActiveCallForGuild = (checkGuildId) => {
+        for (const [uid, u] of Object.entries(users)) {
+            if (!u || !u.call || !u.call.peerId) continue;
+            if (u.call.guildId === checkGuildId) return true;
+            const peer = users[u.call.peerId];
+            if (peer && peer.call && peer.call.guildId === checkGuildId) return true;
+        }
+        return false;
+    };
+
+    // enforce one active call per guild: if this guild already has an active paired call, refuse
+    if (hasActiveCallForGuild(guildId)) {
+        return context.reply({ content: '❌ A call is already active in this server. Only one call may be active per server at a time.', ephemeral: true });
+    }
+
     // if there is someone waiting, prefer same-guild waiter but allow cross-server pairing
     let waiter = waiting[guildId];
     let pairedWith = null;
@@ -1407,13 +1423,19 @@ async function call(context) {
     }
 
     if (pairedWith) {
+        // ensure neither guild involved already has an active call (enforce one per guild)
+        if (hasActiveCallForGuild(guildId) || hasActiveCallForGuild(pairedWith.key)) {
+            return context.reply({ content: '❌ A call is already active in one of the involved servers. Only one call may be active per server at a time.', ephemeral: true });
+        }
         const otherId = pairedWith.entry.userId;
         const otherChannelId = pairedWith.entry.channelId;
         // validate waiter still exists and is not in a call
         if (users[otherId] && (!users[otherId].call || !users[otherId].call.peerId)) {
             users[userId].call = { peerId: otherId, guildId, channelId };
             users[otherId] = users[otherId] || {};
-            users[otherId].call = { peerId: userId, guildId: users[otherId].call && users[otherId].call.channelId ? users[otherId].call.guildId : guildId, channelId: otherChannelId };
+            // ensure the waiter's call.guildId reflects their own guild (pairedWith.key)
+            const otherGuildId = pairedWith.key || guildId;
+            users[otherId].call = { peerId: userId, guildId: otherGuildId, channelId: otherChannelId };
 
             // remove waiting entry
             delete waiting[pairedWith.key];

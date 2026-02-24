@@ -305,17 +305,17 @@ const commandDefinitions = [
     new SlashCommandBuilder()
         .setName('call')
         .setDescription('Join the global call relay. Messages you send will be relayed to other callers via webhooks.')
-        .setContexts(0, 1, 2)
+        .setContexts(0)
         .toJSON(),
     new SlashCommandBuilder()
         .setName('hangup')
         .setDescription('Leave the global call relay.')
-        .setContexts(0, 1, 2)
+        .setContexts(0)
         .toJSON(),
     new SlashCommandBuilder()
         .setName('friend')
         .setDescription('Send your username/tag to your current call peer (if any).')
-        .setContexts(0, 1, 2)
+        .setContexts(0)
         .toJSON(),
     new SlashCommandBuilder()
         .setName('set_nickname')
