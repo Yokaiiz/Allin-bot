@@ -54,6 +54,7 @@ const {
 } = require("discord-api-types/v10");
 
 const TOKEN = process.env.BOT_TOKEN;
+const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -516,6 +517,7 @@ function registerClientEventHandlers(client) {
                     }
                 }
 
+                let usersDirty = false;
                 for (const [ownerId, owner] of owners) {
                     try {
                         const peerId = owner.call.peerId;
@@ -526,6 +528,10 @@ function registerClientEventHandlers(client) {
                             await db.set('users', users);
                             continue;
                         }
+                        // update lastActivity timestamps for both sides to keep the call alive
+                        const now = Date.now();
+                        if (users[ownerId] && users[ownerId].call) { users[ownerId].call.lastActivity = now; usersDirty = true; }
+                        if (users[peerId] && users[peerId].call) { users[peerId].call.lastActivity = now; usersDirty = true; }
 
                         const destChannelId = peer.call.channelId;
                         if (!destChannelId) continue;
@@ -606,6 +612,7 @@ function registerClientEventHandlers(client) {
                                     await channel.send({ content: `${message.member ? message.member.displayName : message.author.username}: ${relayContentBase}` });
                                     console.debug('CallRelay: fallback channel.send succeeded to', destChannelId);
                                     recentForwards.add(forwardKey);
+                                    // expire after short period
                                     setTimeout(() => recentForwards.delete(forwardKey), 10000);
                                 }
                             } catch (fallbackErr) {
@@ -615,6 +622,10 @@ function registerClientEventHandlers(client) {
                     } catch (err) {
                         console.error('Call relay error sending to peer', ownerId, err);
                     }
+                }
+                // persist lastActivity updates if any
+                if (usersDirty) {
+                    try { await db.set('users', users); } catch (e) { console.warn('CallRelay: failed to persist lastActivity', e?.message || e); }
                 }
             }
         } catch (err) {
@@ -684,6 +695,60 @@ function registerClientEventHandlers(client) {
             } catch (e) {
                 console.warn('CallRelay: cleanup on ready failed', e?.message || e);
             }
+            // start inactivity sweeper to auto-hangup idle calls
+            setInterval(async () => {
+                try {
+                    const db = await getDBInstance();
+                    const users = db.get('users') || {};
+                    const now = Date.now();
+                    let modified = false;
+                    for (const [uid, udata] of Object.entries(users)) {
+                        if (!udata || !udata.call || !udata.call.peerId) continue;
+                        const last = udata.call.lastActivity || 0;
+                        if (now - last > INACTIVITY_MS) {
+                            const peerId = udata.call.peerId;
+                            const peer = users[peerId] || {};
+                            const peerChannelId = peer.call ? peer.call.channelId : null;
+                            const ownerChannelId = udata.call.channelId;
+
+                            // cleanup both sides
+                            delete users[uid].call;
+                            if (peer && peer.call && peer.call.peerId === uid) delete users[peerId].call;
+                            modified = true;
+
+                            // notify peer and owner but avoid duplicate messages if both channel IDs are the same
+                            try {
+                                const c = client;
+                                // send tailored messages only to the connected channels (no DM fallbacks)
+                                const channelTargets = new Set();
+                                if (peerChannelId) channelTargets.add(peerChannelId);
+                                if (ownerChannelId) channelTargets.add(ownerChannelId);
+
+                                for (const chId of channelTargets) {
+                                    try {
+                                        const ch = await c.channels.fetch(chId).catch(() => null);
+                                        if (!ch || typeof ch.send !== 'function') continue;
+                                        // tailor message per channel: mention the other participant
+                                        if (chId === peerChannelId && ownerChannelId) {
+                                            await ch.send({ content: `📴 The call with <@${ownerChannelId ? uid : ownerChannelId}> was ended due to 30 minutes of inactivity.` }).catch(() => {});
+                                        } else if (chId === ownerChannelId && peerChannelId) {
+                                            await ch.send({ content: `📴 The call with <@${peerId}> was ended due to 30 minutes of inactivity.` }).catch(() => {});
+                                        } else {
+                                            // fallback generic message
+                                            await ch.send({ content: `📴 The call was ended due to 30 minutes of inactivity.` }).catch(() => {});
+                                        }
+                                    } catch (e) { /* ignore per-channel errors */ }
+                                }
+                            } catch (notifyErr) {
+                                /* ignore overall notify errors */
+                            }
+                        }
+                    }
+                    if (modified) await db.set('users', users);
+                } catch (e) {
+                    console.warn('CallRelay: inactivity sweeper error', e?.message || e);
+                }
+            }, 60 * 1000); // check every minute
             console.log('started db ');
             
             await deployCommands();

@@ -1431,11 +1431,12 @@ async function call(context) {
         const otherChannelId = pairedWith.entry.channelId;
         // validate waiter still exists and is not in a call
         if (users[otherId] && (!users[otherId].call || !users[otherId].call.peerId)) {
-            users[userId].call = { peerId: otherId, guildId, channelId };
+            const now = Date.now();
+            users[userId].call = { peerId: otherId, guildId, channelId, lastActivity: now };
             users[otherId] = users[otherId] || {};
             // ensure the waiter's call.guildId reflects their own guild (pairedWith.key)
             const otherGuildId = pairedWith.key || guildId;
-            users[otherId].call = { peerId: userId, guildId: otherGuildId, channelId: otherChannelId };
+            users[otherId].call = { peerId: userId, guildId: otherGuildId, channelId: otherChannelId, lastActivity: now };
 
             // remove waiting entry
             delete waiting[pairedWith.key];
