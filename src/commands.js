@@ -165,7 +165,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.'
                 },
                 {
                     name: 'Roleplay Commands',
@@ -1606,6 +1606,85 @@ async function friend(context) {
     return context.reply({ content: 'You are not currently in a call with a peer to send your tag to.', ephemeral: true });
 }
 
+async function coinflip(context) {
+    const choice = context.options.getString('choice');
+    const betAmount = context.options.getInteger('amount');
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[context.user.id] || {};
+    const currency = userData.currency || 0;
+
+    // Error embeds
+    const errorEmbed = (title, description) => new EmbedBuilder()
+        .setColor('#FF0000')
+        .setTitle(title)
+        .setDescription(description);
+
+    if (!choice || !['heads', 'tails'].includes(choice.toLowerCase())) {
+        const embed = errorEmbed('Invalid Choice', 'You must choose either **heads** or **tails**.');
+        return context.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (!betAmount || betAmount <= 0) {
+        const embed = errorEmbed('Invalid Bet', 'You must enter a valid bet amount greater than 0.');
+        return context.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (currency < betAmount) {
+        const embed = errorEmbed('Insufficient Funds', `You don't have enough money to bet $${betAmount}. Your current balance is $${currency}.`);
+        return context.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
+    const isWin = choice.toLowerCase() === flipResult;
+    
+    if (isWin) {
+        const newBalance = currency + betAmount;
+        users[context.user.id] = {
+            ...userData,
+            currency: newBalance
+        };
+        const embed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('🎉 You Won!')
+            .setDescription(`The coin landed on **${flipResult.toUpperCase()}**!`)
+            .addFields(
+                { name: 'Your Bet', value: `$${betAmount}`, inline: true },
+                { name: 'Winnings', value: `$${betAmount}`, inline: true },
+                { name: '\u200b', value: '\u200b', inline: true },
+                { name: 'Previous Balance', value: `$${currency}`, inline: true },
+                { name: 'New Balance', value: `$${newBalance}`, inline: true },
+                { name: '\u200b', value: '\u200b', inline: true }
+            )
+            .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
+            .setTimestamp();
+        db.set('users', users);
+        return context.reply({ embeds: [embed], ephemeral: false });
+    } else {
+        const newBalance = currency - betAmount;
+        users[context.user.id] = {
+            ...userData,
+            currency: newBalance
+        };
+        const embed = new EmbedBuilder()
+            .setColor('#FF4444')
+            .setTitle('💔 You Lost!')
+            .setDescription(`The coin landed on **${flipResult.toUpperCase()}**!`)
+            .addFields(
+                { name: 'Your Bet', value: `$${betAmount}`, inline: true },
+                { name: 'Lost', value: `-$${betAmount}`, inline: true },
+                { name: '\u200b', value: '\u200b', inline: true },
+                { name: 'Previous Balance', value: `$${currency}`, inline: true },
+                { name: 'New Balance', value: `$${newBalance}`, inline: true },
+                { name: '\u200b', value: '\u200b', inline: true }
+            )
+            .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
+            .setTimestamp();
+        db.set('users', users);
+        return context.reply({ embeds: [embed], ephemeral: false });
+    }
+}
+
 module.exports = {
     ping,
     help,
@@ -1635,4 +1714,5 @@ module.exports = {
     shop,
     purge,
     set_nickname,
+    coinflip,
 };

@@ -41,6 +41,7 @@ const {
     shop,
     purge,
     set_nickname,
+    coinflip,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -335,6 +336,31 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('coinflip')
+        .setDescription('Gamble your money on a coin flip.')
+        .setContexts(0, 1, 2)
+        .addStringOption(option =>
+            option
+            .setName('choice')
+            .setDescription('The side to bet on: heads or tails.')
+            .setRequired(true)
+            .addChoices({
+                name: 'Heads',
+                value: 'heads'
+            },
+            {
+                name: 'Tails',
+                value: 'tails'
+            })
+        )
+        .addIntegerOption(option =>
+            option
+            .setName('amount')
+            .setDescription('The amount of money to bet on the coin flip.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -449,6 +475,10 @@ const commandHandlers = {
     friend: {
         execute: friend,
         cooldown: 1000
+    },
+    coinflip: {
+        execute: coinflip,
+        cooldown: 5000
     },
 };
 
