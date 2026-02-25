@@ -457,14 +457,14 @@ async function gamble(context) {
     if (multiplier > 0) {
         const gain = betAmount * multiplier;
         currency += gain;
-        resultMessage = `You hit **${tierName}**! You won $${gain} (x${multiplier}).`;
+        resultMessage = `You hit **${tierName}**! You won $${gain.toLocaleString()} (x${multiplier}).`;
     } else if (multiplier === 0) {
         currency -= betAmount;
-        resultMessage = `You lost your bet of $${betAmount}.`;
+        resultMessage = `You lost your bet of $${betAmount.toLocaleString()}.`;
     } else {
         const loss = Math.abs(multiplier) * betAmount;
         currency -= loss;
-        resultMessage = `Oh no! **${tierName}** — you lost $${loss}.`;
+        resultMessage = `Oh no! **${tierName}** — you lost $${loss.toLocaleString()}.`;
     }
 
     // Ensure currency doesn't go negative below 0 (optional business rule)
@@ -476,7 +476,7 @@ async function gamble(context) {
         .setTitle('Gambling Results')
         .setColor('DarkVividPink')
         .setThumbnail(context.user.displayAvatarURL({ Dynamic: true }))
-        .setDescription(`${resultMessage}\nYou now have a total of **${currency}** dollars.`)
+        .setDescription(`${resultMessage}\nYou now have a total of **$${currency.toLocaleString()}** dollars.`)
         .setTimestamp();
 
     await context.reply({ embeds: [gambleEmbed] });
@@ -1631,7 +1631,7 @@ async function coinflip(context) {
     }
 
     if (currency < betAmount) {
-        const embed = errorEmbed('Insufficient Funds', `You don't have enough money to bet $${betAmount}. Your current balance is $${currency}.`);
+        const embed = errorEmbed('Insufficient Funds', `You don't have enough money to bet $${betAmount.toLocaleString()}. Your current balance is $${currency.toLocaleString()}.`);
         return context.reply({ embeds: [embed], ephemeral: true });
     }
 
@@ -1649,11 +1649,11 @@ async function coinflip(context) {
             .setTitle('🎉 You Won!')
             .setDescription(`The coin landed on **${flipResult.toUpperCase()}**!`)
             .addFields(
-                { name: 'Your Bet', value: `$${betAmount}`, inline: true },
-                { name: 'Winnings', value: `$${betAmount}`, inline: true },
+                { name: 'Your Bet', value: `$${betAmount.toLocaleString()}`, inline: true },
+                { name: 'Winnings', value: `$${betAmount.toLocaleString()}`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true },
-                { name: 'Previous Balance', value: `$${currency}`, inline: true },
-                { name: 'New Balance', value: `$${newBalance}`, inline: true },
+                { name: 'Previous Balance', value: `$${currency.toLocaleString()}`, inline: true },
+                { name: 'New Balance', value: `$${newBalance.toLocaleString()}`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true }
             )
             .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
@@ -1671,11 +1671,11 @@ async function coinflip(context) {
             .setTitle('💔 You Lost!')
             .setDescription(`The coin landed on **${flipResult.toUpperCase()}**!`)
             .addFields(
-                { name: 'Your Bet', value: `$${betAmount}`, inline: true },
-                { name: 'Lost', value: `-$${betAmount}`, inline: true },
+                { name: 'Your Bet', value: `$${betAmount.toLocaleString()}`, inline: true },
+                { name: 'Lost', value: `-$${betAmount.toLocaleString()}`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true },
-                { name: 'Previous Balance', value: `$${currency}`, inline: true },
-                { name: 'New Balance', value: `$${newBalance}`, inline: true },
+                { name: 'Previous Balance', value: `$${currency.toLocaleString()}`, inline: true },
+                { name: 'New Balance', value: `$${newBalance.toLocaleString()}`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true }
             )
             .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
