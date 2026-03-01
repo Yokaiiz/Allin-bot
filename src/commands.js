@@ -1690,19 +1690,44 @@ async function mail(context) {
     const message = context.options.getString('message');
 
     if (!recipient) {
-        return context.reply({ content: 'Recipient not found. Please provide a valid user ID or username#discriminator.', ephemeral: true });
+        return context.reply({
+            content: '❌ Recipient not found.',
+            ephemeral: true
+        });
     }
 
-    if (!message || message.trim().length === 0) {
-        return context.reply({ content: 'Message content cannot be empty. Please provide a message to send.', ephemeral: true });
+    if (!message?.trim()) {
+        return context.reply({
+            content: '❌ Message content cannot be empty.',
+            ephemeral: true
+        });
+    }
+
+    // Prevent sending to bots (optional but recommended)
+    if (recipient.bot) {
+        return context.reply({
+            content: '❌ You cannot send mail to bots.',
+            ephemeral: true
+        });
     }
 
     try {
-        await recipient.send({ content: `📬 You have received a new mail message from **${context.user.tag}**:\n\n${message}` });
-        return context.reply({ content: `✅ Your message has been sent to ${recipient.tag}.`, ephemeral: true });
-    } catch (err) {
-        console.error('Error sending mail message:', err);
-        return context.reply({ content: 'There was an error sending your message. The recipient may have DMs disabled or blocked the bot.', ephemeral: true });
+        await recipient.send(
+            `📬 **New Mail From ${context.user.tag}**\n\n${message}`
+        );
+
+        return context.reply({
+            content: `✅ Your message has been sent to ${recipient.tag}.`,
+            ephemeral: true
+        });
+
+    } catch (error) {
+        console.error('DM failed:', error);
+
+        return context.reply({
+            content: `❌ I can't DM ${recipient.tag}. They may have DMs disabled or have blocked the bot.`,
+            ephemeral: true
+        });
     }
 }
 
