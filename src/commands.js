@@ -157,7 +157,7 @@ async function help(context) {
             .addFields(
                 {
                     name: 'Miscellaneous Commands',
-                    value: '`/ping` - Replies with Pong!\n`/help` - Provides helpful information about the bot.'
+                    value: '`/ping` - Replies with Pong!\n`/help` - Provides helpful information about the bot.\n`/mail <recipient> <message>` - Send a mail to another user.'
                 },
                 {
                     name: 'Moderation Commands',
@@ -1685,6 +1685,27 @@ async function coinflip(context) {
     }
 }
 
+async function mail(context) {
+    const recipient = context.options.getUser('recipient');
+    const message = context.options.getString('message');
+
+    if (!recipient) {
+        return context.reply({ content: 'Recipient not found. Please provide a valid user ID or username#discriminator.', ephemeral: true });
+    }
+
+    if (!message || message.trim().length === 0) {
+        return context.reply({ content: 'Message content cannot be empty. Please provide a message to send.', ephemeral: true });
+    }
+
+    try {
+        await recipient.send({ content: `📬 You have received a new mail message from **${context.user.tag}**:\n\n${message}` });
+        return context.reply({ content: `✅ Your message has been sent to ${recipient.tag}.`, ephemeral: true });
+    } catch (err) {
+        console.error('Error sending mail message:', err);
+        return context.reply({ content: 'There was an error sending your message. The recipient may have DMs disabled or blocked the bot.', ephemeral: true });
+    }
+}
+
 module.exports = {
     ping,
     help,
@@ -1715,4 +1736,5 @@ module.exports = {
     purge,
     set_nickname,
     coinflip,
+    mail,
 };

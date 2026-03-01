@@ -42,6 +42,7 @@ const {
     purge,
     set_nickname,
     coinflip,
+    mail,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -361,6 +362,23 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('mail')
+        .setDescription('Send a mail to another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('recipient')
+            .setDescription('The user ID or username#discriminator of the mail recipient.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+            .setName('message')
+            .setDescription('The content of the mail message.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -478,6 +496,10 @@ const commandHandlers = {
     },
     coinflip: {
         execute: coinflip,
+        cooldown: 5000
+    },
+    mail: {
+        execute: mail,
         cooldown: 5000
     },
 };
