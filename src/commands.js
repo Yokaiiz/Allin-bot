@@ -1,6 +1,9 @@
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType } = require("discord.js");
 const { getDBInstance, autoRegUser } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
+const fs = require('fs');
+const path = require('path');
+const { CommandContext } = require('./commandContext.js');
 
 
 const apid = ["292385626773258240", "961370035555811388"]
@@ -161,7 +164,7 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.\n`/set_nickname` - Changes a user\'s nickname in the server.'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.\n`/set_nickname` - Changes a user\'s nickname in the server.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)'
                 },
                 {
                     name: 'Economy Commands',
@@ -1387,7 +1390,7 @@ async function call(context) {
     const existingWaiter = waiting[guildId];
     if (existingWaiter && existingWaiter.userId === userId) {
         console.debug(`Call: user ${userId} attempted to wait again in guild ${guildId}`);
-        return context.reply({ content: 'You are already waiting for a partner in this server. Use /hangup to cancel.', ephemeral: true });
+        return context.reply({ content: 'You are already waiting for a partner in another server. Use /hangup to cancel.', ephemeral: true });
     }
 
     // helper: check whether a guild currently has any active paired call
@@ -1488,7 +1491,7 @@ async function call(context) {
     await db.set('callWaiting', waiting);
     console.debug(`Call: user ${userId} is now waiting in guild ${guildId} (channel ${channelId})`);
 
-    return context.reply({ content: '📞 You are now waiting for another user in this server to /call. Use /hangup to cancel.' });
+    return context.reply({ content: '📞 You are now waiting for another user in another server to /call. Use /hangup to cancel.' });
 }
 
 async function hangup(context) {
@@ -1731,6 +1734,385 @@ async function mail(context) {
     }
 }
 
+async function technique_shop(context) {
+    const userID = context.user.id;
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[userID] || {};
+    let currency = userData.currency || 0;
+
+    const collections = context.getTechniqueData();
+    if (!collections || collections.length === 0) {
+        return context.reply({ content: 'The technique shop is empty. Check back later.' });
+    }
+
+    const showCollectionsMenu = async () => {
+        const collectionOptions = collections.map(col => ({
+            label: col.name,
+            description: `${col.techniques.length} techniques`,
+            value: col.name
+        }));
+
+        const collectionMenu = new StringSelectMenuBuilder()
+            .setCustomId('select_collection')
+            .setPlaceholder('Select a collection 🛒')
+            .addOptions(collectionOptions);
+
+        const collectionRow = new ActionRowBuilder().addComponents(collectionMenu);
+
+        const collectionEmbed = new EmbedBuilder()
+            .setTitle('🥋 Technique Shop - Collections')
+            .setDescription(`**Your Balance:** $${currency.toLocaleString()}
+Select a collection to see its techniques.`)
+            .setColor('Purple')
+            .setTimestamp();
+
+        const message = await context.reply({ embeds: [collectionEmbed], components: [collectionRow], fetchReply: true });
+
+        const collector = message.createMessageComponentCollector({
+            componentType: ComponentType.StringSelect,
+            time: 180000,
+            filter: i => i.user.id === context.user.id
+        });
+
+        collector.on('collect', async i => {
+            if (i.customId === 'select_collection') {
+                collector.stop();
+                const selectedCollection = collections.find(c => c.name === i.values[0]);
+                if (!selectedCollection) return;
+                await showTechniquesMenu(selectedCollection);
+            }
+        });
+    };
+
+    const showTechniquesMenu = async (collection) => {
+        const ownedTechniques = new Set(userData.techniques || []);
+
+        const techniqueOptions = collection.techniques.map(tech => ({
+            label: ownedTechniques.has(tech.id) ? `${tech.name} ✅` : tech.name,
+            description: `Price: $${tech.price.toLocaleString()} | Effect: ${tech.effect || 'None'} | Cooldown: ${tech.cooldown ? (tech.cooldown / 1000) + 's' : 'None'} | Damage: ${tech.damage || 0}`,
+            value: tech.id,
+            default: false,
+            disabled: ownedTechniques.has(tech.id)
+        }));
+
+        const techniqueMenu = new StringSelectMenuBuilder()
+            .setCustomId('select_technique')
+            .setPlaceholder('Select a technique to purchase ⚔️')
+            .addOptions(techniqueOptions);
+
+        const backButton = new ButtonBuilder()
+            .setCustomId('back_to_collections')
+            .setLabel('⬅️ Back to Collections')
+            .setStyle(ButtonStyle.Primary);
+
+        const rowMenu = new ActionRowBuilder().addComponents(techniqueMenu);
+        const rowBack = new ActionRowBuilder().addComponents(backButton);
+
+        const techEmbed = new EmbedBuilder()
+            .setTitle(`🥋 ${collection.name} Techniques`)
+            .setDescription(`**Your Balance:** $${currency.toLocaleString()}
+Select a technique to purchase.`)
+            .setColor('Purple')
+            .setTimestamp();
+
+        const message = await context.followUp({ embeds: [techEmbed], components: [rowMenu, rowBack], fetchReply: true });
+
+        const collector = message.createMessageComponentCollector({
+            componentType: ComponentType.Any,
+            time: 180000,
+            filter: i => i.user.id === context.user.id
+        });
+
+        collector.on('collect', async i => {
+            if (i.isButton && i.isButton() && i.customId === 'back_to_collections') {
+                collector.stop();
+                await showCollectionsMenu();
+            }
+
+            if (i.isSelectMenu && i.isSelectMenu() && i.customId === 'select_technique') {
+                const selectedTech = collection.techniques.find(t => t.id === i.values[0]);
+                if (!selectedTech) return i.reply({ content: 'Technique not found.', ephemeral: true });
+
+                if (currency < selectedTech.price) {
+                    return i.reply({ content: `You don't have enough money to buy **${selectedTech.name}**.`, ephemeral: true });
+                }
+
+                users[userID] = {
+                    ...userData,
+                    currency: currency - selectedTech.price,
+                    techniques: [...(userData.techniques || []), selectedTech.id]
+                };
+                db.set('users', users);
+                currency -= selectedTech.price;
+
+                const purchaseEmbed = new EmbedBuilder()
+                    .setTitle('✅ Purchase Successful')
+                    .setColor('Green')
+                    .addFields(
+                        { name: 'Technique', value: selectedTech.name, inline: true },
+                        { name: 'Effect', value: selectedTech.effect || 'None', inline: true },
+                        { name: 'Cooldown', value: selectedTech.cooldown ? (selectedTech.cooldown / 1000) + 's' : 'None', inline: true },
+                        { name: 'Damage', value: selectedTech.damage.toString(), inline: true },
+                        { name: 'Price Paid', value: `$${selectedTech.price.toLocaleString()}`, inline: true },
+                        { name: 'New Balance', value: `$${currency.toLocaleString()}`, inline: true }
+                    )
+                    .setTimestamp();
+
+                await i.reply({ embeds: [purchaseEmbed], ephemeral: false });
+
+                collector.stop();
+                await showTechniquesMenu(collection);
+            }
+        });
+    };
+
+    await showCollectionsMenu();
+}
+
+
+
+async function equip_technique(context) {
+    // Load the user's unlocked techniques (for example from their DB)
+    const db = await require('./db.js').getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+
+    const userTechniques = users[userId]?.techniques || []; // array of technique IDs
+    if (!userTechniques.length) {
+        return context.reply({ content: "You haven't unlocked any techniques yet!" });
+    }
+
+    const allTechniques = CommandContext.getTechniqueData();
+
+    // Map the unlocked IDs to full data
+    const options = [];
+    for (const tech of allTechniques) {
+        for (const t of tech.techniques) {
+            if (userTechniques.includes(t.id)) {
+                options.push({
+                    label: t.name,
+                    description: t.effect.substring(0, 100),
+                    value: t.id
+                });
+            }
+        }
+    }
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('equip_technique')
+        .setPlaceholder('Select a technique to equip')
+        .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    const embed = new EmbedBuilder()
+        .setTitle(`${context.formatName()}'s Techniques`)
+        .setDescription('Choose a technique to equip from the list below.');
+
+    await context.reply({ embeds: [embed], components: [row] });
+
+    // Create a collector to handle selection
+    const filter = i => i.user.id === context.user.id && i.customId === 'equip_technique';
+    const collector = context.channel.createMessageComponentCollector({ filter, time: 60000, max: 1 });
+
+    collector.on('collect', async i => {
+        const selected = i.values[0];
+        // Save equipped technique to DB
+        if (!users[userId].equipped) users[userId].equipped = {};
+        users[userId].equipped.technique = selected;
+        await db.set('users', users);
+
+        await i.update({ content: `You have equipped **${allTechniques.flatMap(g => g.techniques).find(t => t.id === selected).name}**!`, embeds: [], components: [] });
+    });
+
+    collector.on('end', collected => {
+        if (collected.size === 0) {
+            context.editReply({ content: 'No technique selected.', components: [] });
+        }
+    });
+}
+
+
+
+function calculateDamage(base) {
+    const variance = 0.2;
+    const min = Math.floor(base * (1 - variance));
+    const max = Math.floor(base * (1 + variance));
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function fight(context) {
+
+    const db = await require('./db.js').getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const user = users[userId];
+
+    if (!user || !user.techniques || user.techniques.length === 0) {
+        return context.reply({ content: "You haven't unlocked any techniques!" });
+    }
+
+    const allTechniques = CommandContext.getTechniqueData().flatMap(g => g.techniques);
+
+    const playerTechniques = allTechniques.filter(t =>
+        user.techniques.includes(t.id)
+    );
+
+    if (playerTechniques.length === 0) {
+        return context.reply({ content: "Your techniques could not be found." });
+    }
+
+    const bosses = [
+        { name: "Goblin King", hp: 60, attack: 6, gif: "https://media.tenor.com/7qF8GZ6qKQAAAAAC/goblin.gif" },
+        { name: "Shadow Beast", hp: 90, attack: 9, gif: "https://media.tenor.com/fh9Y5z3YyU4AAAAC/shadow-monster.gif" },
+        { name: "Ancient Dragon", hp: 130, attack: 13, gif: "https://media.tenor.com/mB4xR1O7i9kAAAAC/dragon-fire.gif" }
+    ];
+
+    const boss = bosses[Math.floor(Math.random() * bosses.length)];
+
+    let playerHp = 100;
+    let bossHp = boss.hp;
+
+    const fightLog = [];
+    const cooldowns = {};
+
+    function createMenu() {
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId("fight_move")
+                .setPlaceholder("Choose a technique")
+                .addOptions(
+                    playerTechniques.map(t => ({
+                        label: t.name,
+                        description: cooldowns[t.id] > 0
+                            ? `Cooldown: ${cooldowns[t.id]}`
+                            : `Damage: ${t.damage}`,
+                        value: t.id
+                    }))
+                )
+        );
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
+        .setDescription(`❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
+        .setImage(boss.gif)
+        .setColor(0xff0000);
+
+    await context.reply({
+        embeds: [embed],
+        components: [createMenu()]
+    });
+
+    const message = await context.interaction.fetchReply();
+
+    const collector = message.createMessageComponentCollector({
+        filter: i => i.user.id === context.user.id,
+        time: 120000
+    });
+
+    collector.on("collect", async interaction => {
+
+        await interaction.deferUpdate(); // prevents interaction timeout
+
+        const techId = interaction.values[0];
+        const technique = playerTechniques.find(t => t.id === techId);
+
+        if (!technique) return;
+
+        if (cooldowns[techId] > 0) {
+            fightLog.push(`⏳ ${technique.name} is on cooldown.`);
+        } else {
+
+            const playerDamage = technique.damage || 5;
+
+            bossHp -= playerDamage;
+
+            fightLog.push(`💥 **${technique.name}** dealt **${playerDamage}** damage`);
+
+            cooldowns[techId] = technique.cooldown || 0;
+        }
+
+        if (bossHp <= 0) {
+
+            const reward = Math.floor(Math.random() * 80) + 20;
+
+            user.money = (user.money || 0) + reward;
+            await db.set("users", users);
+
+            const winEmbed = new EmbedBuilder()
+                .setTitle("🎉 Victory!")
+                .setDescription(
+                    fightLog.join("\n") +
+                    `\n\n🏆 You defeated **${boss.name}**` +
+                    `\n💰 Reward: **${reward} coins**`
+                )
+                .setImage("https://media.tenor.com/JgJmYH8QnJ8AAAAC/anime-victory.gif")
+                .setColor(0x00ff00);
+
+            collector.stop();
+
+            return message.edit({
+                embeds: [winEmbed],
+                components: []
+            });
+        }
+
+        const bossDamage = boss.attack;
+        playerHp -= bossDamage;
+
+        fightLog.push(`⚔️ **${boss.name}** dealt **${bossDamage}** damage`);
+
+        if (playerHp <= 0) {
+
+            const loseEmbed = new EmbedBuilder()
+                .setTitle("💀 Defeat")
+                .setDescription(
+                    fightLog.join("\n") +
+                    `\n\nYou were defeated by **${boss.name}**`
+                )
+                .setImage("https://media.tenor.com/Vh9Wb7mLzK8AAAAC/anime-defeat.gif")
+                .setColor(0xff0000);
+
+            collector.stop();
+
+            return message.edit({
+                embeds: [loseEmbed],
+                components: []
+            });
+        }
+
+        for (const key in cooldowns) {
+            if (cooldowns[key] > 0) cooldowns[key]--;
+        }
+
+        const turnEmbed = new EmbedBuilder()
+            .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
+            .setDescription(
+                fightLog.slice(-4).join("\n") +
+                `\n\n❤️ Your HP: **${playerHp}**` +
+                `\n👹 Boss HP: **${bossHp}**`
+            )
+            .setImage(boss.gif)
+            .setColor(0xff9900);
+
+        await message.edit({
+            embeds: [turnEmbed],
+            components: [createMenu()]
+        });
+
+    });
+
+    collector.on("end", async () => {
+        try {
+            await message.edit({ components: [] });
+        } catch {}
+    });
+
+}
+
+
 module.exports = {
     ping,
     help,
@@ -1762,4 +2144,7 @@ module.exports = {
     set_nickname,
     coinflip,
     mail,
+    technique_shop,
+    equip_technique,
+    fight,
 };

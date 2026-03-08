@@ -1,0 +1,26 @@
+[
+    {
+        "name": "Atomic",
+        "id": "atomic",
+        "description": "Cid Kagenou's nuclear technique.",
+        "techniques": [
+            {
+                "name": "I am Atomic",
+                "id": "i_am_atomic",
+                "description": "you become a nuclear bomb, dealing 100% of your ATK as damage to all enemies and yourself. You will be left with 1 HP after using this technique.",
+                "cooldown": 10,
+                "effect": "atomic_bomb",
+                "damage": 50000,
+                "price": 100000
+            },
+            {
+                "name": "Blitz strike",
+                "id": "blitz_strike",
+                "description": "You speed blitz your enemy and cut through their torso in one swift motion",
+                "effect": "lightspeed_cut",
+                "damage": 5000,
+                "price": 85000
+            }
+        ]
+    }
+]

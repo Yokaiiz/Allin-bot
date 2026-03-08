@@ -43,6 +43,9 @@ const {
     set_nickname,
     coinflip,
     mail,
+    technique_shop,
+    equip_technique,
+    fight,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -379,6 +382,21 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('technique_shop')
+        .setDescription('Displays the technique shop.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('equip_technique')
+        .setDescription('equip a technique so you can utilise in battle. (shows a list of unlocked techniques)')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('fight')
+        .setDescription('Fight a random boss using the techniques you have equipped')
+        .setContexts(0, 1, 2)
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -502,6 +520,18 @@ const commandHandlers = {
         execute: mail,
         cooldown: 5000
     },
+    technique_shop: {
+        execute: technique_shop,
+        cooldown: 5000
+    },
+    equip_technique: {
+        execute: equip_technique,
+        cooldown: 5000
+    },
+    fight: {
+        execute: fight,
+        cooldown: 5000
+    },
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -525,7 +555,7 @@ function registerClientEventHandlers(client) {
     client.on('messageCreate', async (message) => {
         // ignore bots and webhook-originated messages
         if (!message || !message.author) return;
-        if (message.author.bot || message.webhookId) return;
+        if (message.webhookId || message.author.bot) return;
 
         // Relay: forward messages from any speaker in a call channel (exclude bots)
         try {

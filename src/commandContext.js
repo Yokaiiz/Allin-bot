@@ -5,6 +5,9 @@ const { getDBInstance } = require('./db.js');
 const itemDataPath = path.resolve(__dirname, 'data/itemData.json');
 let itemData = null;
 
+const TechniqueDataPath = path.resolve(__dirname, 'data/techniqueData.json');
+let techniqueData = null;
+
 function loadItemData() {
     if (itemData === null) {
         try {
@@ -16,6 +19,19 @@ function loadItemData() {
         }
     }
     return itemData;
+}
+
+function loadTechniqueData() {
+    if (techniqueData === null) {
+        try {
+            const data = fs.readFileSync(TechniqueDataPath, 'utf8');
+            techniqueData = JSON.parse(data);
+        } catch (error) {
+            console.error('Error loading technique data', error);
+            techniqueData = [];
+        }
+    }
+    return techniqueData;
 }
 
 class CommandContext {
@@ -79,6 +95,10 @@ class CommandContext {
         return loadItemData();
     }
 
+    static getTechniqueData() {
+        return loadTechniqueData();
+    }
+
     static getItemById(id) {
         const items = loadItemData();
         return items.find(item => item.id === id);
@@ -97,6 +117,10 @@ class CommandContext {
 
     getItemData() {
         return CommandContext.getItemData();
+    }
+
+    getTechniqueData() {
+        return CommandContext.getTechniqueData();
     }
 
     getItemById(id) {
