@@ -46,10 +46,12 @@ const {
     technique_shop,
     equip_technique,
     fight,
+    claim,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
 const { JSONFile } = require('lowdb/node');
+const { AutoPoster } = require('topgg-autoposter');
 const path = require('path');
 
 const { EmbedBuilder } = require("@discordjs/builders");
@@ -59,6 +61,7 @@ const {
 } = require("discord-api-types/v10");
 
 const TOKEN = process.env.BOT_TOKEN;
+const TOPGG_AUTH = process.env.TOPGG_AUTH;
 const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
 const client = new Client({
     intents: [
@@ -70,6 +73,8 @@ const client = new Client({
     ],
     partials: [Partials.Channel],
 });
+
+AutoPoster(TOPGG_AUTH, client)
 
 // this holds all the data for the commands that are sent to the Discord API 
 const commandDefinitions = [
@@ -397,6 +402,11 @@ const commandDefinitions = [
         .setDescription('Fight a random boss using the techniques you have equipped')
         .setContexts(0, 1, 2)
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('claim')
+        .setDescription('Claim your rewards from voting on our discord bot!')
+        .setContexts(0, 1, 2)
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -532,6 +542,10 @@ const commandHandlers = {
         execute: fight,
         cooldown: 5000
     },
+    claim: {
+        execute: claim,
+        cooldown: 5000
+    }
 };
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);

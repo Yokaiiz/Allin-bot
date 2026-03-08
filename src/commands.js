@@ -4,6 +4,9 @@ const roleplayGifs = require('./roleplay_gifs.json');
 const fs = require('fs');
 const path = require('path');
 const { CommandContext } = require('./commandContext.js');
+const Topgg = require('@top-gg/sdk');
+require("dotenv").config();
+const TOPGG_AUTH = process.env.TOPGG_AUTH
 
 
 const apid = ["292385626773258240", "961370035555811388"]
@@ -160,7 +163,7 @@ async function help(context) {
             .addFields(
                 {
                     name: 'Miscellaneous Commands',
-                    value: '`/ping` - Replies with Pong!\n`/help` - Provides helpful information about the bot.\n`/mail <recipient> <message>` - Send a mail to another user.'
+                    value: '`/ping` - Replies with Pong!\n`/help` - Provides helpful information about the bot.\n`/mail <recipient> <message>` - Send a mail to another user.\n`/claim` - claim 100,000 after voting for our discord bot!'
                 },
                 {
                     name: 'Moderation Commands',
@@ -2112,6 +2115,54 @@ async function fight(context) {
 
 }
 
+async function claim(context) {
+    const top = new Topgg.Api(TOPGG_AUTH);
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const userData = users[userId] || {};
+    const currency = userData.currency || 0;
+    const lastClaim = userData.lastClaim || 0;
+
+    const COOLDOWN = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+    const now = Date.now();
+
+    // Check cooldown
+    if (now - lastClaim < COOLDOWN) {
+        const remaining = COOLDOWN - (now - lastClaim);
+        const hours = Math.floor(remaining / 3600000);
+        const minutes = Math.floor((remaining % 3600000) / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+
+        await context.deferReply({ ephemeral: true });
+        return context.editReply(`⏳ You need to wait **${hours}h ${minutes}m ${seconds}s** before claiming again.`);
+    }
+
+    // Defer reply while checking Top.gg
+    await context.deferReply({ ephemeral: false });
+
+    // Check if user has voted
+    const hasVoted = await top.hasVoted(userId);
+    if (!hasVoted) {
+        return context.editReply('❌ Mate, you haven\'t voted!! Check the bot page.');
+    }
+
+    const reward = 100000;
+
+    // Update DB
+    users[userId] = {
+        ...userData,
+        currency: currency + reward,
+        lastClaim: now // save the timestamp of this claim
+    };
+    db.set('users', users);
+
+    // Send the reward message
+    return context.editReply({
+        content: `🎉 ${context.user.tag} has earned $${reward.toLocaleString()}! Their final balance is $${(currency + reward).toLocaleString()}.`
+    });
+}
+
 
 module.exports = {
     ping,
@@ -2147,4 +2198,5 @@ module.exports = {
     technique_shop,
     equip_technique,
     fight,
+    claim,
 };
