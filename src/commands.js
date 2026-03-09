@@ -94,7 +94,7 @@ const begItems = [
 
 
 async function ping(context) {
-    return context.reply({ content: 'Pong!' });
+    return context.deferReply({ content: 'Pong!' });
 }
 
 async function help(context) {
@@ -136,7 +136,7 @@ async function help(context) {
     })
     .setTimestamp();
 
-    await context.reply({
+    await context.deferReply({
         embeds: [helpEmbed],
         components: [SelectMenuRow, buttonRow]
     });
@@ -150,8 +150,8 @@ async function help(context) {
         filter: (i) => i.user.id === context.user.id
     });
 
-    collector.on('collect', async (interaction) => {
-        if (interaction.values[0] === 'help_discord_bot') {
+    collector.on('collect', async (i) => {
+        if (i.values[0] === 'help_discord_bot') {
             const discordBotHelpEmbed = new EmbedBuilder()
             .setTitle('Discord Bot Help')
             .setColor('DarkVividPink')
@@ -167,11 +167,11 @@ async function help(context) {
                 },
                 {
                     name: 'Moderation Commands',
-                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.\n`/set_nickname` - Changes a user\'s nickname in the server.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)'
+                    value: '`/addrole` - Adds a role to a user.\n`/removerole` - Removes a role from a user.\n`/timeout` - Temporarily restrict a user\'s ability to interact in the server.\n`/ban` - Bans a user from the server.\n`/kick` - Kicks a user from the server.\n`/createchannel` - Creates a new channel, category, or forum.\n`/deletechannel` - Deletes a channel, category, or forum.\n`/purge` - Deletes a specified number of messages from a channel.\n`/set_nickname` - Changes a user\'s nickname in the server.'
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)'
                 },
                 {
                     name: 'Roleplay Commands',
@@ -185,7 +185,7 @@ async function help(context) {
             .setTimestamp();
 
             try {
-                await interaction.update({ embeds: [discordBotHelpEmbed], components: [buttonRow] });
+                await i.update({ embeds: [discordBotHelpEmbed], components: [buttonRow] });
             } catch (err) {
                 console.error('interaction.update failed (help menu), falling back to edit:', err);
                 try { await replyMessage.edit({ embeds: [discordBotHelpEmbed], components: [buttonRow] }); } catch (e) { try { await context.editReply({ embeds: [discordBotHelpEmbed], components: [buttonRow] }); } catch (e2) {/* ignore */} }
@@ -217,31 +217,31 @@ async function addrole(context) {
         PermissionFlagsBits.ManageRoles,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'You do not have permission to manage roles or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to manage roles or do not have admin.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(
         PermissionFlagsBits.ManageRoles,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'I do not have permission to manage roles or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to manage roles or do not have admin.', ephemeral: true });
     }
 
     if (roleToAdd.position >= executorMember.roles.highest.position) {
-        return context.reply({ content: 'You cannot assign a role that is equal to or higher than your highest role.', ephemeral: true });
+        return context.deferReply({ content: 'You cannot assign a role that is equal to or higher than your highest role.', ephemeral: true });
     }
 
     if (roleToAdd.position >= context.guild.members.me.roles.highest.position) {
-        return context.reply({ content: 'I cannot assign a role that is equal to or higher than my highest role.', ephemeral: true });
+        return context.deferReply({ content: 'I cannot assign a role that is equal to or higher than my highest role.', ephemeral: true });
     }
 
     try {
         const memberToModify = await context.guild.members.fetch(targetUser.id);
         await memberToModify.roles.add(roleToAdd);
-        return context.reply({ content: `Successfully added the role ${roleToAdd.name} to user ${targetUser.tag}.` });
+        return context.deferReply({ content: `Successfully added the role ${roleToAdd.name} to user ${targetUser.tag}.` });
     } catch (error) {
         console.error('Error adding role:', error);
-        return context.reply({ content: 'There was an error adding the role. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error adding the role. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
     }
 }
 
@@ -254,31 +254,31 @@ async function removerole(context) {
         PermissionFlagsBits.ManageRoles,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'You do not have permission to manage roles or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to manage roles or do not have admin.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(
         PermissionFlagsBits.ManageRoles,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'I do not have permission to manage roles or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to manage roles or do not have admin.', ephemeral: true });
     }
 
     if (roleToRemove.position >= executorMember.roles.highest.position) {
-        return context.reply({ content: 'You cannot remove a role that is equal to or higher than your highest role.', ephemeral: true });
+        return context.deferReply({ content: 'You cannot remove a role that is equal to or higher than your highest role.', ephemeral: true });
     }
 
     if (roleToRemove.position >= context.guild.members.me.roles.highest.position) {
-        return context.reply({ content: 'I cannot remove a role that is equal to or higher than my highest role.', ephemeral: true });
+        return context.deferReply({ content: 'I cannot remove a role that is equal to or higher than my highest role.', ephemeral: true });
     }
 
     try {
         const memberToModify = await context.guild.members.fetch(targetUser.id);
         await memberToModify.roles.remove(roleToRemove);
-        return context.reply({ content: `Successfully removed the role ${roleToRemove.name} from user ${targetUser.tag}.` });
+        return context.deferReply({ content: `Successfully removed the role ${roleToRemove.name} from user ${targetUser.tag}.` });
     } catch (error) {
         console.error('Error removing role:', error);
-        return context.reply({ content: 'There was an error removing the role. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error removing the role. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
     }
 }
 
@@ -290,13 +290,13 @@ async function test_ali(context) {
 
     const args = context.args;
     if (!args || args.length === 0) {
-        return context.reply({ content: 'KEY AND VALUE NOW!!!!!!!', ephemeral: true });
+        return context.deferReply({ content: 'KEY AND VALUE NOW!!!!!!!', ephemeral: true });
     }
 
     const [keyVal] = args; // e.g. "currency.1000"
     const [key, value] = keyVal.split(".");
     if (!key || typeof value === 'undefined') {
-        return context.reply({ content: 'key.value to update db entries', ephemeral: true });
+        return context.deferReply({ content: 'key.value to update db entries', ephemeral: true });
     }
 
     let val = value;
@@ -312,7 +312,7 @@ async function test_ali(context) {
     users[context.user.id][key] = val;
     await db.set('users', users);
 
-    return context.reply({ content: `${key} set to ${val}`, ephemeral: false });
+    return context.deferReply({ content: `${key} set to ${val}`, ephemeral: false });
 }
 
 async function profile(context) {
@@ -336,7 +336,7 @@ async function profile(context) {
     )
     .setTimestamp();
 
-    await context.reply({
+    await context.deferReply({
         embeds: [profileEmbed],
     });
 }
@@ -410,7 +410,7 @@ async function beg(context) {
     .setDescription(description)
     .setTimestamp();
 
-    await context.reply({ embeds: [begEmbed] });
+    await context.deferReply({ embeds: [begEmbed] });
 }
 
 async function gamble(context) {
@@ -420,16 +420,16 @@ async function gamble(context) {
     let currency = userData.currency || 0;
     const betAmount = context.options.getInteger('amount');
     if (!betAmount || betAmount <= 0) {
-        return context.reply({ content: 'Please provide a valid bet amount greater than 0.', ephemeral: true });
+        return context.deferReply({ content: 'Please provide a valid bet amount greater than 0.', ephemeral: true });
     }
 
     if (betAmount > currency) {
-        return context.reply({ content: `You cannot bet more than you have! You currently have $${currency}.`, ephemeral: true });
+        return context.deferReply({ content: `You cannot bet more than you have! You currently have $${currency}.`, ephemeral: true });
     }
 
     if (currency <= 0) {
         await db.set('users', { ...users, [context.user.id]: { ...userData, id: context.user.id, name: context.user.username, currency: 0 } });
-        return context.reply({ content: 'You have no money to gamble. Please earn some currency first.', ephemeral: true });
+        return context.deferReply({ content: 'You have no money to gamble. Please earn some currency first.', ephemeral: true });
     }
 
     const r = Math.random();
@@ -485,7 +485,7 @@ async function gamble(context) {
         .setDescription(`${resultMessage}\nYou now have a total of **$${currency.toLocaleString()}** dollars.`)
         .setTimestamp();
 
-    await context.reply({ embeds: [gambleEmbed] });
+    await context.deferReply({ embeds: [gambleEmbed] });
 }
 
 async function _roleplayAction(context, actionKey, actionVerb, gifs) {
@@ -493,11 +493,11 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
     const actor = context.user;
 
     if (!targetUser) {
-        return context.reply({ content: `Who do you want to ${actionVerb}? Use the \`target\` option.`, ephemeral: true });
+        return context.deferReply({ content: `Who do you want to ${actionVerb}? Use the \`target\` option.`, ephemeral: true });
     }
 
     if (targetUser.bot) {
-        return context.reply({ content: `You can't ${actionVerb} a bot.`, ephemeral: true });
+        return context.deferReply({ content: `You can't ${actionVerb} a bot.`, ephemeral: true });
     }
 
     // Pick a random gif (local first, Tenor fallback)
@@ -557,7 +557,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
 
     const row = new ActionRowBuilder().addComponents(recipButton, declineButton);
 
-    await context.reply({ embeds: [embed], components: [row] });
+    await context.deferReply({ embeds: [embed], components: [row] });
 
     const replyMessage = await context.interaction.fetchReply();
 
@@ -569,9 +569,9 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
             i.customId === `rp_dec_${actionKey}_${actor.id}_${targetUser.id}`
     });
 
-    collector.on('collect', async interaction => {
-        if (interaction.user.id !== targetUser.id) {
-            return interaction.reply({ content: 'Only the target can respond to this interaction.', ephemeral: true });
+    collector.on('collect', async context => {
+        if (context.user.id !== targetUser.id) {
+            return context.deferReply({ content: 'Only the target can respond to this interaction.', ephemeral: true });
         }
 
         recipButton.setDisabled(true);
@@ -579,14 +579,14 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
         const disabledRow = new ActionRowBuilder().addComponents(recipButton, declineButton);
 
         // Decline
-        if (interaction.customId.startsWith('rp_dec_')) {
+        if (context.customId.startsWith('rp_dec_')) {
             const declinedEmbed = new EmbedBuilder()
                 .setTitle(`${targetUser.username} declined to ${actionVerb}`)
                 .setDescription(`${targetUser.username} declined to ${actionVerb} ${actor.username}.`)
                 .setColor('Grey')
                 .setTimestamp();
 
-            await interaction.update({ embeds: [declinedEmbed], components: [disabledRow] });
+            await context.update({ embeds: [declinedEmbed], components: [disabledRow] });
             collector.stop();
             return;
         }
@@ -629,7 +629,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
             .setImage(recipGif)
             .setTimestamp();
 
-        await interaction.update({ embeds: [recipEmbed], components: [disabledRow] });
+        await context.update({ embeds: [recipEmbed], components: [disabledRow] });
         collector.stop();
     });
 
@@ -681,7 +681,7 @@ async function daily(context) {
         const hoursDiff = timeDiff / (1000 * 60 * 60);
         if (hoursDiff < 24) {
             const nextClaim = new Date(lastDaily.getTime() + 24 * 60 * 60 * 1000);
-            return context.reply({ content: `You have already claimed your daily reward. You can claim again on ${nextClaim.toUTCString()}.`, ephemeral: true });
+            return context.deferReply({ content: `You have already claimed your daily reward. You can claim again on ${nextClaim.toUTCString()}.`, ephemeral: true });
         }
     }
 
@@ -706,7 +706,7 @@ async function daily(context) {
         .setDescription(`You have claimed your daily reward #${dailyCount} and received **${dailyAmount}** dollars!\nYou now have a total of **${currency}** dollars.`)
         .setTimestamp();
 
-    await context.reply({ embeds: [dailyEmbed] });
+    await context.deferReply({ embeds: [dailyEmbed] });
 }
 
 async function timeout(context) {
@@ -719,23 +719,23 @@ async function timeout(context) {
         PermissionFlagsBits.ModerateMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'You do not have permission to timeout members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to timeout members or do not have admin.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(
         PermissionFlagsBits.ModerateMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'I do not have permission to timeout members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to timeout members or do not have admin.', ephemeral: true });
     }
 
     try {
         const memberToTimeout = await context.guild.members.fetch(targetUser.id);
         await memberToTimeout.timeout(duration * 60 * 1000, reason);
-        return context.reply({ content: `Successfully timed out user ${targetUser.tag} for ${duration} minutes. Reason: ${reason}` });
+        return context.deferReply({ content: `Successfully timed out user ${targetUser.tag} for ${duration} minutes. Reason: ${reason}` });
     } catch (error) {
         console.error('Error timing out member:', error);
-        return context.reply({ content: 'There was an error timing out the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error timing out the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
     }
 }
 
@@ -747,22 +747,22 @@ async function ban(context) {
         PermissionFlagsBits.BanMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'You do not have permission to ban members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to ban members or do not have admin.', ephemeral: true });
     }
     if (!context.guild.members.me.permissions.has(
         PermissionFlagsBits.BanMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'I do not have permission to ban members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to ban members or do not have admin.', ephemeral: true });
     }
     try {
         const memberToBan = await context.guild.members.fetch(targetUser.id);
         await memberToBan.ban({ reason });
-        return context.reply({ content: `Successfully banned user ${targetUser.tag}. Reason: ${reason}` });
+        return context.deferReply({ content: `Successfully banned user ${targetUser.tag}. Reason: ${reason}` });
     }
     catch (error) {
         console.error('Error banning member:', error);
-        return context.reply({ content: 'There was an error banning the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error banning the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
     }
 }
 
@@ -771,7 +771,7 @@ async function inv(context) {
     const inventory = await context.getInventory();
 
     if (!inventory || inventory.length === 0) {
-        return context.reply({ content: `${context.formatName()}, you've got no items in your inventory!`, ephemeral: true });
+        return context.deferReply({ content: `${context.formatName()}, you've got no items in your inventory!`, ephemeral: true });
     }
 
     const description = inventory.map((item, idx) => {
@@ -784,35 +784,35 @@ async function inv(context) {
         .setDescription(description)
         .setTimestamp();
 
-    await context.reply({ embeds: [invEmbed] });
+    await context.deferReply({ embeds: [invEmbed] });
 }
 
 async function use(context) {
     const args = context.args;
     
     if (!args || args.length === 0) {
-        return context.reply({ content: 'specify the item you want to use, e.g. `ali use <item>', ephemeral: true });
+        return context.deferReply({ content: 'specify the item you want to use, e.g. `ali use <item>', ephemeral: true });
     }
 
     const itemNameInput = args.join(' ').toLowerCase();
     const itemData = context.getItemByName(itemNameInput);
     
     if (!itemData) {
-        return context.reply({ content: `The item **${itemNameInput}** does not exist.`, ephemeral: true });
+        return context.deferReply({ content: `The item **${itemNameInput}** does not exist.`, ephemeral: true });
     }
 
     if (!itemData.duration || !itemData.effect) {
-        return context.reply({ content: `The item **${itemData.name}** cannot be used.`, ephemeral: true });
+        return context.deferReply({ content: `The item **${itemData.name}** cannot be used.`, ephemeral: true });
     }
 
     const inventory = await context.getInventory();
     if (!inventory || inventory.length === 0) {
-        return context.reply({ content: 'you got ZERO items', ephemeral: true });
+        return context.deferReply({ content: 'you got ZERO items', ephemeral: true });
     }
 
     const itemInInventory = inventory.find(item => item.id === itemData.id);
     if (!itemInInventory || itemInInventory.quantity <= 0) {
-        return context.reply({ content: `you don't have any **${itemData.name}** to use!`, ephemeral: true }); 
+        return context.deferReply({ content: `you don't have any **${itemData.name}** to use!`, ephemeral: true }); 
     }
     
 
@@ -840,7 +840,7 @@ async function use(context) {
     setActiveEffect(userId, itemData.effect, itemData.duration);
 
     const durationMinutes = Math.floor(itemData.duration / 60000);
-    await context.reply({
+    await context.deferReply({
         content: `You used **${itemData.name}**\n\n-# > **Effect:** ${itemData.description}\n-# > **Duration:** ${durationMinutes} minutes`
     });
 }
@@ -854,29 +854,29 @@ async function kick(context) {
         PermissionFlagsBits.KickMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'You do not have permission to kick members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to kick members or do not have admin.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(
         PermissionFlagsBits.KickMembers,
         PermissionFlagsBits.Administrator,
     )) {
-        return context.reply({ content: 'I do not have permission to kick members or do not have admin.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to kick members or do not have admin.', ephemeral: true });
     }
     
     try {
         const memberToKick = await context.guild.members.fetch(targetUser.id);
         await memberToKick.kick(reason);
-        return context.reply({ content: `Successfully kicked user ${targetUser.tag}. Reason: ${reason}` });
+        return context.deferReply({ content: `Successfully kicked user ${targetUser.tag}. Reason: ${reason}` });
     } catch (error) {
         console.error('Error kicking member:', error);
-        return context.reply({ content: 'There was an error kicking the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error kicking the member. Please ensure I have the correct permissions and the user is valid.', ephemeral: true });
     }
 }
 
 async function createchannel(context) {
     const rawName = context.options.getString('name');
-    if (!rawName) return context.reply({ content: 'You must provide a channel name.', ephemeral: true });
+    if (!rawName) return context.deferReply({ content: 'You must provide a channel name.', ephemeral: true });
 
     // sanitize - discord prefers lower-case and dashes for text channel names
     const channelName = rawName.trim().replace(/\s+/g, '-').toLowerCase();
@@ -885,17 +885,17 @@ async function createchannel(context) {
 
     const executorMember = context.guild.members.cache.get(context.user.id);
     if (!executorMember || (!executorMember.permissions.has(PermissionFlagsBits.ManageChannels) && !executorMember.permissions.has(PermissionFlagsBits.Administrator))) {
-        return context.reply({ content: 'You do not have permission to create channels.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to create channels.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels) && !context.guild.members.me.permissions.has(PermissionFlagsBits.Administrator)) {
-        return context.reply({ content: 'I do not have permission to create channels.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to create channels.', ephemeral: true });
     }
 
     // Prevent creating duplicate channels with the same name
     const existing = context.guild.channels.cache.find(ch => ch.name === channelName);
     if (existing) {
-        return context.reply({ content: `A channel named **${channelName}** already exists.`, ephemeral: true });
+        return context.deferReply({ content: `A channel named **${channelName}** already exists.`, ephemeral: true });
     }
 
     let channelType;
@@ -931,10 +931,10 @@ async function createchannel(context) {
             reason: `Created by ${context.user.tag} via bot command`
         });
 
-        return context.reply({ content: `Successfully created channel <#${created.id}>.`, ephemeral: false });
+        return context.deferReply({ content: `Successfully created channel <#${created.id}>.`, ephemeral: false });
     } catch (error) {
         console.error('Error creating channel:', error);
-        return context.reply({ content: 'There was an error creating the channel. Please ensure I have the correct permissions and that the name is valid.', ephemeral: true });
+        return context.deferReply({ content: 'There was an error creating the channel. Please ensure I have the correct permissions and that the name is valid.', ephemeral: true });
     }
 }
 
@@ -943,16 +943,16 @@ async function deletechannel(context) {
     const channelOption = context.options.getChannel('channel');
 
     if (!nameInput && !channelOption) {
-        return context.reply({ content: 'You must provide a channel `name` or select a `channel` to delete. Example: `/deletechannel channel:#general` or `/deletechannel name:general`', ephemeral: true });
+        return context.deferReply({ content: 'You must provide a channel `name` or select a `channel` to delete. Example: `/deletechannel channel:#general` or `/deletechannel name:general`', ephemeral: true });
     }
 
     const executorMember = context.guild.members.cache.get(context.user.id);
     if (!executorMember || (!executorMember.permissions.has(PermissionFlagsBits.ManageChannels) && !executorMember.permissions.has(PermissionFlagsBits.Administrator))) {
-        return context.reply({ content: 'You do not have permission to delete channels.', ephemeral: true });
+        return context.deferReply({ content: 'You do not have permission to delete channels.', ephemeral: true });
     }
 
     if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels) && !context.guild.members.me.permissions.has(PermissionFlagsBits.Administrator)) {
-        return context.reply({ content: 'I do not have permission to delete channels.', ephemeral: true });
+        return context.deferReply({ content: 'I do not have permission to delete channels.', ephemeral: true });
     }
 
     // Collect candidate channels
@@ -977,7 +977,7 @@ async function deletechannel(context) {
     // Deduplicate by id
     candidates = [...new Map(candidates.map(ch => [ch.id, ch])).values()];
 
-    if (!candidates.length) return context.reply({ content: `No channels found matching **${nameInput || (channelOption ? channelOption.id : '')}**.`, ephemeral: true });
+    if (!candidates.length) return context.deferReply({ content: `No channels found matching **${nameInput || (channelOption ? channelOption.id : '')}**.`, ephemeral: true });
 
     // If multiple matches, present a select menu to the user
     if (candidates.length > 1) {
@@ -989,20 +989,20 @@ async function deletechannel(context) {
 
         const row = new ActionRowBuilder().addComponents(select);
 
-        await context.reply({ content: 'Multiple channels matched your query. Please select the one you want to delete:', components: [row], ephemeral: true });
+        await context.deferReply({ content: 'Multiple channels matched your query. Please select the one you want to delete:', components: [row], ephemeral: true });
         const replyMessage = await context.interaction.fetchReply();
 
         const collector = replyMessage.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 60000, filter: (i) => i.user.id === context.user.id });
 
-        collector.on('collect', async (interaction) => {
-            await interaction.deferUpdate();
-            const selectedId = interaction.values[0];
+        collector.on('collect', async (i) => {
+            await context.deferUpdate();
+            const selectedId = context.values[0];
             const ch = context.guild.channels.cache.get(selectedId) || await context.guild.channels.fetch(selectedId).catch(() => null);
             if (!ch) {
                 try {
-                    await interaction.editReply({ content: 'Selected channel not found.', components: [] });
+                    await context.editReply({ content: 'Selected channel not found.', components: [] });
                 } catch (err) {
-                    console.error('interaction.editReply failed (selected not found), falling back to message edit:', err);
+                    console.error('context.editReply failed (selected not found), falling back to message edit:', err);
                     try { await replyMessage.edit({ content: 'Selected channel not found.', components: [] }); } catch (e) { try { await context.editReply({ content: 'Selected channel not found.', components: [] }); } catch (e2) {/* ignore */} }
                 }
                 return;
@@ -1102,10 +1102,10 @@ async function shop(context) {
 
     if (!items || items.length === 0) {
         try {
-            return context.reply({ content: 'The shop is closed, it currently has no items.'});
+            return context.deferReply({ content: 'The shop is closed, it currently has no items.'});
         } catch (err) {
             console.error('Error replying about empty shop:', err);
-            return context.reply({ content: 'Please try again later.'})
+            return context.deferReply({ content: 'Please try again later.'})
         }
     }
 
@@ -1134,14 +1134,14 @@ async function shop(context) {
     .setTimestamp();
     
     try {
-        await context.reply({
+        await context.deferReply({
             embeds: [mainShopEmbed],
             components: [ItemSelectRow],
             ephemeral: false,
         });
     } catch (err) {
         console.error('Error replying with shop embed:', err);
-        return context.reply({ content: 'There was an error displaying the shop. Please try again later.' });
+        return context.deferReply({ content: 'There was an error displaying the shop. Please try again later.' });
     };
 
     const replyMessage = await context.interaction.fetchReply();
@@ -1161,7 +1161,7 @@ async function shop(context) {
                 await i.reply({ content: 'Selected item not found.', ephemeral: true });
             } catch (err) {
                 console.error('Error replying about selected item not found:', err);
-                try { await context.reply({ content: 'Selected item not found.', ephemeral: true }); } catch (e) {}
+                try { await context.deferReply({ content: 'Selected item not found.', ephemeral: true }); } catch (e) {}
             }
             return;
         }
@@ -1171,7 +1171,7 @@ async function shop(context) {
                 await i.reply({ content: `You don't have enough money to buy **${selectedItem.name}**.`, ephemeral: true });
             } catch (err) {
                 console.error('Error replying about insufficient funds:', err);
-                try { await context.reply({ content: `You don't have enough money to buy **${selectedItem.name}**.`, ephemeral: true }); } catch (e) {}
+                try { await context.deferReply({ content: `You don't have enough money to buy **${selectedItem.name}**.`, ephemeral: true }); } catch (e) {}
             }
 
             return;
@@ -1204,7 +1204,7 @@ async function shop(context) {
             await i.reply({ embeds: [purchaseEmbed], ephemeral: true });
         } catch (err) {
             console.error('Error replying about successful purchase:', err);
-            try { await context.reply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price.toLocaleString()}.`, ephemeral: true }); } catch (e) {}
+            try { await context.deferReply({ content: `You bought **${selectedItem.name}** for $${selectedItem.price.toLocaleString()}.`, ephemeral: true }); } catch (e) {}
         }
     })
 }
@@ -1213,7 +1213,7 @@ async function purge(context) {
     const amount = context.options.getInteger('amount');
 
     if (!context.guild) {
-        return context.reply({
+        return context.deferReply({
             content: 'This command can only be used in a server.',
             ephemeral: true
         });
@@ -1225,7 +1225,7 @@ async function purge(context) {
         await context.guild.members.fetch(context.client.user.id);
 
     if (!botMember.permissions.has(PermissionFlagsBits.ManageMessages)) {
-        return context.reply({
+        return context.deferReply({
             content: 'I do not have permission to manage messages in this channel.',
             ephemeral: true
         });
@@ -1237,14 +1237,14 @@ async function purge(context) {
         await context.guild.members.fetch(context.user.id);
 
     if (!member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-        return context.reply({
+        return context.deferReply({
             content: 'You do not have permission to manage messages in this channel.',
             ephemeral: true
         });
     }
 
     if (!amount || amount < 1) {
-        return context.reply({
+        return context.deferReply({
             content: 'You must specify a number of messages to delete (at least 1).',
             ephemeral: true
         });
@@ -1288,13 +1288,13 @@ async function set_nickname(context) {
 
     if (!context.guild) {
         try {
-            return context.reply({
+            return context.deferReply({
                 content: 'This command is exclusive to servers/guilds.',
                 ephemeral: true
             });
         } catch (err) {
             console.log('Error replying about guild-only command:', err);
-            return context.reply({
+            return context.deferReply({
                 content: 'Please try again later.',
                 ephemeral: true
             });
@@ -1303,13 +1303,13 @@ async function set_nickname(context) {
 
     if (!context.guild.members.me.permissions.has(PermissionFlagsBits.ChangeNickname)) {
         try {
-            return context.reply({
+            return context.deferReply({
                 content: 'I do not have permission to change nicknames in this server.',
                 ephemeral: true
             });
         } catch (err) {
             console.log('Error replying about missing permissions:', err);
-            return context.reply({
+            return context.deferReply({
                 content: 'Please try again later.',
                 ephemeral: true
             });
@@ -1322,28 +1322,28 @@ async function set_nickname(context) {
         member = await context.guild.members.fetch(user.id);
     } catch (err) {
         console.error('Error fetching member for nickname change:', err);
-        return context.reply({
+        return context.deferReply({
             content: 'Could not find the specified user in this server.',
             ephemeral: true
         });
     }
 
     if (!member) {
-        return context.reply({
+        return context.deferReply({
             content: 'Could not find the specified user in this server.',
             ephemeral: true
         });
     }
 
     if (member.roles.highest.position >= context.guild.members.me.roles.highest.position) {
-        return context.reply({
+        return context.deferReply({
             content: 'I cannot change the nickname of that user because their highest role is higher or equal to mine.',
             ephemeral: true
         });
     }
 
     if (member.roles.highest.position >= context.guild.members.cache.get(context.user.id).roles.highest.position) {
-        return context.reply({
+        return context.deferReply({
             content: 'You cannot change the nickname of that user because their highest role is higher or equal to yours.',
             ephemeral: true
         });
@@ -1351,13 +1351,13 @@ async function set_nickname(context) {
 
     try {
         await member.setNickname(nickname, `Nickname change requested by ${context.user.tag} via bot command`);
-        return context.reply({
+        return context.deferReply({
             content: `Successfully changed ${member.user.tag}'s nickname to **${nickname}**.`,
             ephemeral: false
         });
     } catch (err) {
         console.error('Error setting nickname:', err);
-        return context.reply({
+        return context.deferReply({
             content: 'There was an error changing the nickname. Please ensure I have the correct permissions and that the nickname is valid.',
             ephemeral: true
         });
@@ -1365,7 +1365,7 @@ async function set_nickname(context) {
 }
 
 async function call(context) {
-    if (!context.guild) return context.reply({ content: 'This command must be used in a server/guild.', ephemeral: true });
+    if (!context.guild) return context.deferReply({ content: 'This command must be used in a server/guild.', ephemeral: true });
 
     const db = await getDBInstance();
     const users = db.get('users') || {};
@@ -1385,7 +1385,7 @@ async function call(context) {
             delete users[userId].call;
             await db.set('users', users);
         } else {
-            return context.reply({ content: 'You are already connected in a call. Use /hangup to disconnect.', ephemeral: true });
+            return context.deferReply({ content: 'You are already connected in a call. Use /hangup to disconnect.', ephemeral: true });
         }
     }
 
@@ -1393,7 +1393,7 @@ async function call(context) {
     const existingWaiter = waiting[guildId];
     if (existingWaiter && existingWaiter.userId === userId) {
         console.debug(`Call: user ${userId} attempted to wait again in guild ${guildId}`);
-        return context.reply({ content: 'You are already waiting for a partner in another server. Use /hangup to cancel.', ephemeral: true });
+        return context.deferReply({ content: 'You are already waiting for a partner in another server. Use /hangup to cancel.', ephemeral: true });
     }
 
     // helper: check whether a guild currently has any active paired call
@@ -1409,7 +1409,7 @@ async function call(context) {
 
     // enforce one active call per guild: if this guild already has an active paired call, refuse
     if (hasActiveCallForGuild(guildId)) {
-        return context.reply({ content: '❌ A call is already active in this server. Only one call may be active per server at a time.', ephemeral: true });
+        return context.deferReply({ content: '❌ A call is already active in this server. Only one call may be active per server at a time.', ephemeral: true });
     }
 
     // if there is someone waiting, prefer same-guild waiter but allow cross-server pairing
@@ -1431,7 +1431,7 @@ async function call(context) {
     if (pairedWith) {
         // ensure neither guild involved already has an active call (enforce one per guild)
         if (hasActiveCallForGuild(guildId) || hasActiveCallForGuild(pairedWith.key)) {
-            return context.reply({ content: '❌ A call is already active in one of the involved servers. Only one call may be active per server at a time.', ephemeral: true });
+            return context.deferReply({ content: '❌ A call is already active in one of the involved servers. Only one call may be active per server at a time.', ephemeral: true });
         }
         const otherId = pairedWith.entry.userId;
         const otherChannelId = pairedWith.entry.channelId;
@@ -1481,7 +1481,7 @@ async function call(context) {
 
             console.debug(`Call: paired ${userId} with ${otherId} (cross-server=${pairedWith.key !== guildId})`);
 
-            return context.reply({ content: `📞 Connected to <@${otherId}>. Messages you send here will be relayed to them. Use /hangup to end.` });
+            return context.deferReply({ content: `📞 Connected to <@${otherId}>. Messages you send here will be relayed to them. Use /hangup to end.` });
         } else {
             // invalid waiter, remove and fall through to add this user
             delete waiting[pairedWith.key];
@@ -1494,11 +1494,11 @@ async function call(context) {
     await db.set('callWaiting', waiting);
     console.debug(`Call: user ${userId} is now waiting in guild ${guildId} (channel ${channelId})`);
 
-    return context.reply({ content: '📞 You are now waiting for another user in another server to /call. Use /hangup to cancel.' });
+    return context.deferReply({ content: '📞 You are now waiting for another user in another server to /call. Use /hangup to cancel.' });
 }
 
 async function hangup(context) {
-    if (!context.guild) return context.reply({ content: 'This command must be used in a server/guild.', ephemeral: true });
+    if (!context.guild) return context.deferReply({ content: 'This command must be used in a server/guild.', ephemeral: true });
 
     const db = await getDBInstance();
     const users = db.get('users') || {};
@@ -1513,13 +1513,13 @@ async function hangup(context) {
     if (waiter && waiter.userId === userId) {
         delete waiting[guildId];
         await db.set('callWaiting', waiting);
-        return context.reply({ content: 'You left the waiting queue.', ephemeral: false });
+        return context.deferReply({ content: 'You left the waiting queue.', ephemeral: false });
     }
 
     // if in a paired call, disconnect both sides (validate peer)
     const callInfo = users[userId].call;
     if (!callInfo || !callInfo.peerId) {
-        return context.reply({ content: 'You are not currently in a call.', ephemeral: true });
+        return context.deferReply({ content: 'You are not currently in a call.', ephemeral: true });
     }
 
     const peerId = callInfo.peerId;
@@ -1542,7 +1542,7 @@ async function hangup(context) {
         }
     } catch (e) {}
 
-    return context.reply({ content: '📴 You have hung up the call.' });
+    return context.deferReply({ content: '📴 You have hung up the call.' });
 }
 
 async function friend(context) {
@@ -1581,7 +1581,7 @@ async function friend(context) {
 
                         if (webhook) {
                             await webhook.send({ content: messageText, username: senderTag, avatarURL: context.user.displayAvatarURL() }).catch(() => {});
-                            await context.reply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
+                            await context.deferReply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
                             return;
                         }
                     }
@@ -1589,7 +1589,7 @@ async function friend(context) {
                     // fallback to channel.send
                     try {
                         await channel.send({ content: messageText }).catch(() => {});
-                        await context.reply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
+                        await context.deferReply({ content: `✅ Friend request delivered into your peer's active call channel.`, ephemeral: false });
                         return;
                     } catch (e) { /* ignore */ }
                 }
@@ -1600,7 +1600,7 @@ async function friend(context) {
                 const fetched = await client.users.fetch(peerId).catch(() => null);
                 if (fetched) {
                     await fetched.send({ content: messageText }).catch(() => {});
-                    await context.reply({ content: '✅ Friend request sent to your peer (via DM).', ephemeral: false });
+                    await context.deferReply({ content: '✅ Friend request sent to your peer (via DM).', ephemeral: false });
                     return;
                 }
             } catch (e) { /* ignore */ }
@@ -1609,7 +1609,7 @@ async function friend(context) {
         }
     }
 
-    return context.reply({ content: 'You are not currently in a call with a peer to send your tag to.', ephemeral: true });
+    return context.deferReply({ content: 'You are not currently in a call with a peer to send your tag to.', ephemeral: true });
 }
 
 async function coinflip(context) {
@@ -1628,17 +1628,17 @@ async function coinflip(context) {
 
     if (!choice || !['heads', 'tails'].includes(choice.toLowerCase())) {
         const embed = errorEmbed('Invalid Choice', 'You must choose either **heads** or **tails**.');
-        return context.reply({ embeds: [embed], ephemeral: true });
+        return context.deferReply({ embeds: [embed], ephemeral: true });
     }
 
     if (!betAmount || betAmount <= 0) {
         const embed = errorEmbed('Invalid Bet', 'You must enter a valid bet amount greater than 0.');
-        return context.reply({ embeds: [embed], ephemeral: true });
+        return context.deferReply({ embeds: [embed], ephemeral: true });
     }
 
     if (currency < betAmount) {
         const embed = errorEmbed('Insufficient Funds', `You don't have enough money to bet $${betAmount.toLocaleString()}. Your current balance is $${currency.toLocaleString()}.`);
-        return context.reply({ embeds: [embed], ephemeral: true });
+        return context.deferReply({ embeds: [embed], ephemeral: true });
     }
 
     const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
@@ -1665,7 +1665,7 @@ async function coinflip(context) {
             .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
             .setTimestamp();
         db.set('users', users);
-        return context.reply({ embeds: [embed], ephemeral: false });
+        return context.deferReply({ embeds: [embed], ephemeral: false });
     } else {
         const newBalance = currency - betAmount;
         users[context.user.id] = {
@@ -1687,7 +1687,7 @@ async function coinflip(context) {
             .setFooter({ text: context.user.username, iconURL: context.user.displayAvatarURL({ dynamic: true }) })
             .setTimestamp();
         db.set('users', users);
-        return context.reply({ embeds: [embed], ephemeral: false });
+        return context.deferReply({ embeds: [embed], ephemeral: false });
     }
 }
 
@@ -1696,14 +1696,14 @@ async function mail(context) {
     const message = context.options.getString('message');
 
     if (!recipient) {
-        return context.reply({
+        return context.deferReply({
             content: '❌ Recipient not found.',
             ephemeral: true
         });
     }
 
     if (!message?.trim()) {
-        return context.reply({
+        return context.deferReply({
             content: '❌ Message content cannot be empty.',
             ephemeral: true
         });
@@ -1711,7 +1711,7 @@ async function mail(context) {
 
     // Prevent sending to bots (optional but recommended)
     if (recipient.bot) {
-        return context.reply({
+        return context.deferReply({
             content: '❌ You cannot send mail to bots.',
             ephemeral: true
         });
@@ -1722,7 +1722,7 @@ async function mail(context) {
             `📬 **New Mail From ${context.user.tag}**\n\n${message}`
         );
 
-        return context.reply({
+        return context.deferReply({
             content: `✅ Your message has been sent to ${recipient.tag}.`,
             ephemeral: true
         });
@@ -1730,7 +1730,7 @@ async function mail(context) {
     } catch (error) {
         console.error('DM failed:', error);
 
-        return context.reply({
+        return context.deferReply({
             content: `❌ I can't DM ${recipient.tag}. They may have DMs disabled or have blocked the bot.`,
             ephemeral: true
         });
@@ -1746,7 +1746,7 @@ async function technique_shop(context) {
 
     const collections = context.getTechniqueData();
     if (!collections || collections.length === 0) {
-        return context.reply({ content: 'The technique shop is empty. Check back later.' });
+        return context.deferReply({ content: 'The technique shop is empty. Check back later.' });
     }
 
     const showCollectionsMenu = async () => {
@@ -1770,7 +1770,7 @@ Select a collection to see its techniques.`)
             .setColor('Purple')
             .setTimestamp();
 
-        const message = await context.reply({ embeds: [collectionEmbed], components: [collectionRow], fetchReply: true });
+        const message = await context.deferReply({ embeds: [collectionEmbed], components: [collectionRow], fetchReply: true });
 
         const collector = message.createMessageComponentCollector({
             componentType: ComponentType.StringSelect,
@@ -1883,7 +1883,7 @@ async function equip_technique(context) {
 
     const userTechniques = users[userId]?.techniques || []; // array of technique IDs
     if (!userTechniques.length) {
-        return context.reply({ content: "You haven't unlocked any techniques yet!" });
+        return context.deferReply({ content: "You haven't unlocked any techniques yet!" });
     }
 
     const allTechniques = CommandContext.getTechniqueData();
@@ -1913,7 +1913,7 @@ async function equip_technique(context) {
         .setTitle(`${context.formatName()}'s Techniques`)
         .setDescription('Choose a technique to equip from the list below.');
 
-    await context.reply({ embeds: [embed], components: [row] });
+    await context.deferReply({ embeds: [embed], components: [row] });
 
     // Create a collector to handle selection
     const filter = i => i.user.id === context.user.id && i.customId === 'equip_technique';
@@ -1953,7 +1953,7 @@ async function fight(context) {
     const user = users[userId];
 
     if (!user || !user.techniques || user.techniques.length === 0) {
-        return context.reply({ content: "You haven't unlocked any techniques!" });
+        return context.deferReply({ content: "You haven't unlocked any techniques!" });
     }
 
     const allTechniques = CommandContext.getTechniqueData().flatMap(g => g.techniques);
@@ -1963,7 +1963,7 @@ async function fight(context) {
     );
 
     if (playerTechniques.length === 0) {
-        return context.reply({ content: "Your techniques could not be found." });
+        return context.deferReply({ content: "Your techniques could not be found." });
     }
 
     const bosses = [
@@ -2003,7 +2003,7 @@ async function fight(context) {
         .setImage(boss.gif)
         .setColor(0xff0000);
 
-    await context.reply({
+    await context.deferReply({
         embeds: [embed],
         components: [createMenu()]
     });
@@ -2015,11 +2015,11 @@ async function fight(context) {
         time: 120000
     });
 
-    collector.on("collect", async interaction => {
+    collector.on("collect", async context => {
 
-        await interaction.deferUpdate(); // prevents interaction timeout
+        await context.deferUpdate(); // prevents interaction timeout
 
-        const techId = interaction.values[0];
+        const techId = context.values[0];
         const technique = playerTechniques.find(t => t.id === techId);
 
         if (!technique) return;
