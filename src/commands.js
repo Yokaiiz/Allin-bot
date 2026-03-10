@@ -2199,5 +2199,4 @@ module.exports = {
     equip_technique,
     fight,
     claim,
-
 };
