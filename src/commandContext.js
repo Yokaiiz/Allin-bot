@@ -57,7 +57,11 @@ class CommandContext {
 
     reply(options) {
         if (this.interaction) {
-            return this.interaction.reply(options);
+            if (this.interaction.replied || this.interaction.deferred) {
+                return this.interaction.followUp(options);
+            } else {
+                return this.interaction.reply(options);
+            }
         } else {
             return this.channel.send(options.content || options);
         }
