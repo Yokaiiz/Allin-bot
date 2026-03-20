@@ -12,6 +12,10 @@ const TOPGG_AUTH = process.env.TOPGG_AUTH
 const apid = ["292385626773258240", "961370035555811388"]
 
 const activeEffects = new Map();
+// Tracks scheduled timeouts for `/call` queue entries, so we can cancel them
+// when users pair up or hang up.
+const callQueueTimeouts = new Map();
+const CALL_QUEUE_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Fetch anime GIF from Tenor (Node 18+ has global fetch). Falls back to null on error.
 async function fetchAnimeGif(term) {
@@ -1376,6 +1380,7 @@ async function call(context) {
 
     const guildId = context.guild.id;
     const channelId = context.channel?.id || (context.interaction ? context.interaction.channelId : null);
+    const client = (context.interaction && context.interaction.client) || (context.message && context.message.client);
 
     // cleanup stale call state for this user if present
     if (users[userId].call && users[userId].call.peerId) {
@@ -1447,6 +1452,13 @@ async function call(context) {
             // remove waiting entry
             delete waiting[pairedWith.key];
 
+
+            // cancel the wait timeout for the paired user (if still scheduled)
+            const otherTimerKey = `${pairedWith.key}:${otherId}`;
+            const otherTimeout = callQueueTimeouts.get(otherTimerKey);
+            if (otherTimeout) clearTimeout(otherTimeout);
+            callQueueTimeouts.delete(otherTimerKey);
+
             await db.set('users', users);
             await db.set('callWaiting', waiting);
 
@@ -1485,13 +1497,50 @@ async function call(context) {
         } else {
             // invalid waiter, remove and fall through to add this user
             delete waiting[pairedWith.key];
+            const otherTimerKey = `${pairedWith.key}:${pairedWith.entry.userId}`;
+            const otherTimeout = callQueueTimeouts.get(otherTimerKey);
+            if (otherTimeout) clearTimeout(otherTimeout);
+            callQueueTimeouts.delete(otherTimerKey);
             await db.set('callWaiting', waiting);
         }
     }
 
-    // otherwise place this user in waiting queue for this guild
+    // genuinely useless code idk why your setting users waiting in the queue via database, just do it in memory with a TTL cache
     waiting[guildId] = { userId, channelId };
     await db.set('callWaiting', waiting);
+
+    // Schedule timeout to prevent people calling, then it being picked up when the bot re-turns on, or 6 hours down the line
+    // this function can be replaced with a scheduled node cron job, this timeout will work as:
+    // five minutes AFTER the bot starts, you can tweak it to be 5 minutes based on RL time e.g. 5 minutes after 12:00 AM, etc.
+    const timerKey = `${guildId}:${userId}`;
+    const existingTimeout = callQueueTimeouts.get(timerKey);
+    if (existingTimeout) clearTimeout(existingTimeout);
+    callQueueTimeouts.delete(timerKey);
+
+    const queuedChannelId = channelId;
+    setTimeout(() => {
+        (async () => {
+            const db = await getDBInstance();
+            const users = db.get('users') || {};
+            const waiting = db.get('callWaiting') || {};
+
+            const currentWaiter = waiting[guildId];
+            if (!currentWaiter || currentWaiter.userId !== userId) return;
+
+            if (users[userId]?.call && users[userId].call.peerId) return;
+
+            delete waiting[guildId];
+            await db.set('callWaiting', waiting);
+            callQueueTimeouts.delete(timerKey);
+
+            if (client && queuedChannelId) {
+                try {
+                    const ch = await client.channels.fetch(queuedChannelId).catch(() => null);
+                    if (ch) await ch.send({ content: 'Your call request timed out and was removed from the queue.' }).catch(() => {});
+                } catch (e) { /* ignore the error cuz who the fuck cares?!?!?!?!? we DONT?!!?!!!!!!!¬ FUCK MRBOBY!!!!! */ }
+            }
+        })().catch((e) => console.error('Call queue timeout failed', e));
+    }, CALL_QUEUE_TIMEOUT_MS);
     console.debug(`Call: user ${userId} is now waiting in guild ${guildId} (channel ${channelId})`);
 
     return context.reply({ content: '📞 You are now waiting for another user in another server to /call. Use /hangup to cancel.' });
@@ -1512,6 +1561,10 @@ async function hangup(context) {
     const waiter = waiting[guildId];
     if (waiter && waiter.userId === userId) {
         delete waiting[guildId];
+        const timerKey = `${guildId}:${userId}`;
+        const timeout = callQueueTimeouts.get(timerKey);
+        if (timeout) clearTimeout(timeout);
+        callQueueTimeouts.delete(timerKey);
         await db.set('callWaiting', waiting);
         return context.reply({ content: 'You left the waiting queue.', ephemeral: false });
     }
