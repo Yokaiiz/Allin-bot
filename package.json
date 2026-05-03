@@ -11,7 +11,7 @@
     "@top-gg/sdk": "^3.1.6",
     "body-parser": "^2.2.2",
     "discord-api-types": "^0.37.107",
-    "discord.js": "^14.25.1",
+    "discord.js": "^14.26.4",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "lowdb": "^7.0.1",
