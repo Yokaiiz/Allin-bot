@@ -1254,7 +1254,8 @@ async function purge(context) {
         });
     }
 
-    await context.reply({ ephemeral: true });
+    // FIX: was empty reply → now deferred reply
+    await context.deferReply({ ephemeral: true });
 
     let deleted = 0;
     let lastId = null;
@@ -1281,7 +1282,7 @@ async function purge(context) {
         lastId = messages.last().id;
     }
 
-    await context.editReply({
+    return context.editReply({
         content: `🧹 Deleted **${deleted}** message${deleted === 1 ? '' : 's'}.`
     });
 }
