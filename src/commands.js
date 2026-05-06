@@ -1999,8 +1999,7 @@ function calculateDamage(base) {
 }
 
 async function fight(context) {
-
-    const db = await require('./db.js').getDBInstance();
+    const db = await getDBInstance();
     const users = db.get('users') || {};
     const userId = context.user.id;
     const user = users[userId];
@@ -2010,10 +2009,7 @@ async function fight(context) {
     }
 
     const allTechniques = CommandContext.getTechniqueData().flatMap(g => g.techniques);
-
-    const playerTechniques = allTechniques.filter(t =>
-        user.techniques.includes(t.id)
-    );
+    const playerTechniques = allTechniques.filter(t => user.techniques.includes(t.id));
 
     if (playerTechniques.length === 0) {
         return context.reply({ content: "Your techniques could not be found." });
@@ -2029,7 +2025,6 @@ async function fight(context) {
 
     let playerHp = 100;
     let bossHp = boss.hp;
-
     const fightLog = [];
     const cooldowns = {};
 
@@ -2041,9 +2036,7 @@ async function fight(context) {
                 .addOptions(
                     playerTechniques.map(t => ({
                         label: t.name,
-                        description: cooldowns[t.id] > 0
-                            ? `Cooldown: ${cooldowns[t.id]}`
-                            : `Damage: ${t.damage}`,
+                        description: cooldowns[t.id] > 0 ? `Cooldown: ${cooldowns[t.id]}` : `Damage: ${t.damage}`,
                         value: t.id
                     }))
                 )
@@ -2056,10 +2049,7 @@ async function fight(context) {
         .setImage(boss.gif)
         .setColor(0xff0000);
 
-    await context.reply({
-        embeds: [embed],
-        components: [createMenu()]
-    });
+    await context.reply({ embeds: [embed], components: [createMenu()] });
 
     const message = await context.interaction.fetchReply();
 
@@ -2068,104 +2058,72 @@ async function fight(context) {
         time: 120000
     });
 
-    collector.on("collect", async context => {
+    collector.on("collect", async interaction => {
+        await interaction.deferUpdate(); // defer once per interaction
 
-        await context.deferUpdate(); // prevents interaction timeout
-
-        const techId = context.values[0];
+        const techId = interaction.values[0];
         const technique = playerTechniques.find(t => t.id === techId);
-
         if (!technique) return;
 
+        // Handle cooldown
         if (cooldowns[techId] > 0) {
             fightLog.push(`⏳ ${technique.name} is on cooldown.`);
         } else {
-
             const playerDamage = technique.damage || 5;
-
             bossHp -= playerDamage;
-
             fightLog.push(`💥 **${technique.name}** dealt **${playerDamage}** damage`);
-
             cooldowns[techId] = technique.cooldown || 0;
         }
 
+        // Boss defeated
         if (bossHp <= 0) {
-
             const reward = Math.floor(Math.random() * 80) + 20;
-
             user.money = (user.money || 0) + reward;
             await db.set("users", users);
 
             const winEmbed = new EmbedBuilder()
                 .setTitle("🎉 Victory!")
-                .setDescription(
-                    fightLog.join("\n") +
-                    `\n\n🏆 You defeated **${boss.name}**` +
-                    `\n💰 Reward: **${reward} coins**`
-                )
+                .setDescription(`${fightLog.join("\n")}\n\n🏆 You defeated **${boss.name}**\n💰 Reward: **${reward} coins**`)
                 .setImage("https://media.tenor.com/JgJmYH8QnJ8AAAAC/anime-victory.gif")
                 .setColor(0x00ff00);
 
             collector.stop();
-
-            return message.edit({
-                embeds: [winEmbed],
-                components: []
-            });
+            return interaction.editReply({ embeds: [winEmbed], components: [] });
         }
 
+        // Boss attacks
         const bossDamage = boss.attack;
         playerHp -= bossDamage;
-
         fightLog.push(`⚔️ **${boss.name}** dealt **${bossDamage}** damage`);
 
+        // Player defeated
         if (playerHp <= 0) {
-
             const loseEmbed = new EmbedBuilder()
                 .setTitle("💀 Defeat")
-                .setDescription(
-                    fightLog.join("\n") +
-                    `\n\nYou were defeated by **${boss.name}**`
-                )
+                .setDescription(`${fightLog.join("\n")}\n\nYou were defeated by **${boss.name}**`)
                 .setImage("https://media.tenor.com/Vh9Wb7mLzK8AAAAC/anime-defeat.gif")
                 .setColor(0xff0000);
 
             collector.stop();
-
-            return message.edit({
-                embeds: [loseEmbed],
-                components: []
-            });
+            return interaction.editReply({ embeds: [loseEmbed], components: [] });
         }
 
-        for (const key in cooldowns) {
-            if (cooldowns[key] > 0) cooldowns[key]--;
-        }
+        // Reduce cooldowns
+        for (const key in cooldowns) if (cooldowns[key] > 0) cooldowns[key]--;
 
+        // Update embed for next turn
         const turnEmbed = new EmbedBuilder()
             .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
-            .setDescription(
-                fightLog.slice(-4).join("\n") +
-                `\n\n❤️ Your HP: **${playerHp}**` +
-                `\n👹 Boss HP: **${bossHp}**`
-            )
+            .setDescription(`${fightLog.slice(-4).join("\n")}\n\n❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
             .setImage(boss.gif)
             .setColor(0xff9900);
 
-        await message.edit({
-            embeds: [turnEmbed],
-            components: [createMenu()]
-        });
-
+        await interaction.editReply({ embeds: [turnEmbed], components: [createMenu()] });
     });
 
     collector.on("end", async () => {
-        try {
-            await message.edit({ components: [] });
-        } catch {}
+        try { await message.edit({ components: [] }); } catch {}
     });
-
 }
 
 async function claim(context) {
