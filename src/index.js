@@ -47,6 +47,7 @@ const {
     equip_technique,
     fight,
     claim,
+    donate,
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
