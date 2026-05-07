@@ -2175,6 +2175,55 @@ async function claim(context) {
     });
 }
 
+async function donate(context) {
+    const recipient = context.options.getUser('recipient');
+    const amount = context.options.getInteger('amount');
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const senderId = context.user.id;
+    const senderData = users[senderId] || {};
+    const senderCurrency = senderData.currency || 0;
+
+    if (!recipient) {
+        return context.reply({ content: '❌ Recipient not found.', ephemeral: true });
+    }
+
+    if (recipient.bot) {
+        return context.reply({ content: '❌ You cannot donate to bots.', ephemeral: true });
+    }
+
+    if (!amount || amount <= 0) {
+        return context.reply({ content: '❌ You must enter a valid amount greater than 0.', ephemeral: true });
+    }
+
+    if (senderCurrency < amount) {
+        return context.reply({ content: `❌ You don't have enough money to donate $${amount.toLocaleString()}. Your current balance is $${senderCurrency.toLocaleString()}.`, ephemeral: true });
+    }
+
+    const recipientId = recipient.id;
+    const recipientData = users[recipientId] || {};
+    const recipientCurrency = recipientData.currency || 0;
+
+    // Update sender and recipient balances
+    try {
+        users[senderId] = {
+            ...senderData,
+            currency: senderCurrency - amount
+        };
+        users[recipientId] = {
+            ...recipientData,
+            currency: recipientCurrency + amount
+        };
+        db.set('users', users);
+
+        await context.reply({ content: `✅ You have donated $${amount.toLocaleString()} to ${recipient.tag}. Your new balance is $${(senderCurrency - amount).toLocaleString()}.`, ephemeral: true });
+        await recipient.send(`💸 You have received a donation of $${amount.toLocaleString()} from ${context.user.tag}! Your new balance is $${(recipientCurrency + amount).toLocaleString()}.`).catch(() => {})
+        } catch (e) {
+            console.error('Donation failed:', e)
+            return context.reply({ content: '❌ An error occurred while processing the donation. Please try again later.', ephemeral: true });
+    }
+}
+
 
 module.exports = {
     ping,
@@ -2211,4 +2260,5 @@ module.exports = {
     equip_technique,
     fight,
     claim,
+    donate,
 };

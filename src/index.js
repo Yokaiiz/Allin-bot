@@ -407,6 +407,23 @@ const commandDefinitions = [
         .setDescription('Claim your rewards from voting on our discord bot!')
         .setContexts(0, 1, 2)
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('donate')
+        .setDescription('Give some of your money to another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('recipient')
+            .setDescription('The user to donate to.')
+            .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option
+            .setName('amount')
+            .setDescription('The amount of money to donate.')
+            .setRequired(true)
+        )
+        .toJSON(),
 ];
 
 const commandHandlers = {
@@ -544,6 +561,10 @@ const commandHandlers = {
     },
     claim: {
         execute: claim,
+        cooldown: 5000
+    },
+    donate: {
+        execute: donate,
         cooldown: 5000
     }
 };
