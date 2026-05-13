@@ -86,6 +86,11 @@ function toGerund(verb) {
     return verb + 'ing';
 }
 
+function getRandomGif(gifArray) {
+    if (!Array.isArray(gifArray) || gifArray.length === 0) return null;
+    return gifArray[Math.floor(Math.random() * gifArray.length)];
+}
+
 // Items that can be found when begging
 const begItems = [
     { name: 'Old Coin', value: 10, rarity: 'common' },
@@ -492,7 +497,7 @@ async function gamble(context) {
     await context.reply({ embeds: [gambleEmbed] });
 }
 
-async function _roleplayAction(context, actionKey, actionVerb, gifs) {
+async function _roleplayAction(context, actionKey, actionVerb, gifPack) {
     const targetUser = context.options.getUser('target');
     const actor = context.user;
 
@@ -504,11 +509,12 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
         return context.reply({ content: `You can't ${actionVerb} a bot.`, ephemeral: true });
     }
 
+    const actionGifs = Array.isArray(gifPack) ? gifPack : gifPack?.action;
+    const declineGifs = gifPack?.decline;
+
     // Pick a random gif (local first, Tenor fallback)
-    let gif = null;
-    if (Array.isArray(gifs) && gifs.length > 0) {
-        gif = gifs[Math.floor(Math.random() * gifs.length)];
-    } else {
+    let gif = getRandomGif(actionGifs);
+    if (!gif) {
         try {
             gif = await fetchAnimeGif(actionVerb);
         } catch {}
@@ -567,7 +573,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
 
     const collector = replyMessage.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 60000,
+        time: 0,
         filter: i =>
             i.customId === `rp_rec_${actionKey}_${actor.id}_${targetUser.id}` ||
             i.customId === `rp_dec_${actionKey}_${actor.id}_${targetUser.id}`
@@ -584,10 +590,13 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
 
         // Decline
         if (context.customId.startsWith('rp_dec_')) {
+            let declineGif = getRandomGif(declineGifs) || gif;
+
             const declinedEmbed = new EmbedBuilder()
                 .setTitle(`${targetUser.username} declined to ${actionVerb}`)
                 .setDescription(`${targetUser.username} declined to ${actionVerb} ${actor.username}.`)
                 .setColor('Grey')
+                .setImage(declineGif)
                 .setTimestamp();
 
             await context.update({ embeds: [declinedEmbed], components: [disabledRow] });
@@ -612,10 +621,8 @@ async function _roleplayAction(context, actionKey, actionVerb, gifs) {
             [targetUser.id]: { ...targetData2, id: targetUser.id, name: targetUser.username }
         });
 
-        let recipGif = null;
-        if (Array.isArray(gifs) && gifs.length > 0) {
-            recipGif = gifs[Math.floor(Math.random() * gifs.length)];
-        } else {
+        let recipGif = getRandomGif(actionGifs);
+        if (!recipGif) {
             try {
                 recipGif = await fetchAnimeGif(actionVerb);
             } catch {}
@@ -670,6 +677,30 @@ async function punch(context) {
 
 async function kill(context) {
     return _roleplayAction(context, 'kills', 'kill', roleplayGifs.kill);
+}
+
+async function handshake(context) {
+    return _roleplayAction(context, 'handshakes', 'handshake', roleplayGifs.handshake);
+}
+
+async function carry(context) {
+    return _roleplayAction(context, 'carries', 'carry', roleplayGifs.carry);
+}
+
+async function chuck(context) {
+    return _roleplayAction(context, 'chucks', 'chuck', roleplayGifs.chuck);
+}
+
+async function nudge(context) {
+    return _roleplayAction(context, 'nudges', 'nudge', roleplayGifs.nudge);
+}
+
+async function flick(context) {
+    return _roleplayAction(context, 'flicks', 'flick', roleplayGifs.flick);
+}
+
+async function poke(context) {
+    return _roleplayAction(context, 'pokes', 'poke', roleplayGifs.poke);
 }
 
 async function daily(context) {
@@ -2261,4 +2292,10 @@ module.exports = {
     fight,
     claim,
     donate,
+    handshake,
+    carry,
+    chuck,
+    nudge,
+    flick,
+    poke
 };

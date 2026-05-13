@@ -48,6 +48,12 @@ const {
     fight,
     claim,
     donate,
+    handshake,
+    carry,
+    chuck,
+    nudge,
+    flick,
+    poke
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -425,6 +431,72 @@ const commandDefinitions = [
             .setRequired(true)
         )
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('handshake')
+        .setDescription('Shake hands with another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to shake hands with.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('carry')
+        .setDescription('Carry another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to carry.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('chuck')
+        .setDescription('Chuck another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to chuck.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('nudge')
+        .setDescription('Nudge another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to nudge.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('flick')
+        .setDescription('Flick another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to flick.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('poke')
+        .setDescription('Poke another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('user')
+            .setDescription('The user to poke.')
+            .setRequired(true)
+        )
+        .toJSON()
 ];
 
 const commandHandlers = {
@@ -482,6 +554,30 @@ const commandHandlers = {
     },
     kill: {
         execute: kill,
+        cooldown: 3000
+    },
+    handshake: {
+        execute: handshake,
+        cooldown: 3000
+    },
+    carry: {
+        execute: carry,
+        cooldown: 3000
+    },
+    chuck: {
+        execute: chuck,
+        cooldown: 3000
+    },
+    nudge: {
+        execute: nudge,
+        cooldown: 3000
+    },
+    flick: {
+        execute: flick,
+        cooldown: 3000
+    },
+    poke: {
+        execute: poke,
         cooldown: 3000
     },
     daily: {
