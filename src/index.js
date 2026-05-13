@@ -437,7 +437,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('user')
+            .setName('target')
             .setDescription('The user to shake hands with.')
             .setRequired(true)
         )
@@ -448,7 +448,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('user')
+            .setName('target')
             .setDescription('The user to carry.')
             .setRequired(true)
         )
@@ -459,7 +459,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('user')
+            .setName('target')
             .setDescription('The user to chuck.')
             .setRequired(true)
         )
@@ -470,7 +470,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('user')
+            .setName('target')
             .setDescription('The user to nudge.')
             .setRequired(true)
         )
@@ -481,7 +481,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('user')
+            .setName('target')
             .setDescription('The user to poke.')
             .setRequired(true)
         )
@@ -492,7 +492,7 @@ const commandDefinitions = [
         .setContexts(0, 1, 2)
         .addUserOption(option =>
             option
-            .setName('opponent')
+            .setName('target')
             .setDescription('The user to fight against.')
             .setRequired(true)
         )
