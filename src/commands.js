@@ -184,7 +184,7 @@ async function help(context) {
                 },
                 {
                     name: 'Roleplay Commands',
-                    value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.\n`/slap <target>` - Slap another user.\n`/punch <target>` - Punch another user.\n`/kill <target>` - Kill another user.'
+                    value: '`/kiss <target>` - Send a kiss to another user.\n`/hug <target>` - Hug another user.\n`/cuddle <target>` - Cuddle another user.\n`/slap <target>` - Slap another user.\n`/punch <target>` - Punch another user.\n`/kill <target>` - Kill another user.\n`/handshake <target>` - Shake hands with another user.\n`/carry <target>` - Carry another user.\n`/chuck <target>` - Chuck another user.\n`/nudge <target>` - Nudge another user.\n`/poke <target>` - Poke another user.\n`/roleplayfight <target>` - Fight another user.'
                 },
                 {
                     name: 'Social commands',
@@ -545,7 +545,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifPack) {
 
     const embed = new EmbedBuilder()
         .setTitle(`${actor.username} ${verbThird} ${targetUser.username}`)
-        .setDescription(`${actor.username} ${gerund} ${targetUser.username}.`)
+        .setDescription(`<@${actor.id}> ${gerund} <@${targetUser.id}>.`)
         .setColor('DarkVividPink')
         .addFields({
             name: `${targetUser.username} - ${actionKey} received`,
@@ -594,7 +594,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifPack) {
 
             const declinedEmbed = new EmbedBuilder()
                 .setTitle(`${targetUser.username} declined to ${actionVerb}`)
-                .setDescription(`${targetUser.username} declined to ${actionVerb} ${actor.username}.`)
+                .setDescription(`<@${targetUser.id}> declined to ${actionVerb} ${actor.username}.`)
                 .setColor('Grey')
                 .setImage(declineGif)
                 .setTimestamp();
@@ -630,7 +630,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifPack) {
 
         const recipEmbed = new EmbedBuilder()
             .setTitle(`${targetUser.username} ${verbThird} ${actor.username}`)
-            .setDescription(`${targetUser.username} ${gerund} ${actor.username} in return.`)
+            .setDescription(`<@${targetUser.id}> ${gerund} <@${actor.id}> in return.`)
             .setColor('DarkVividPink')
             .addFields({
                 name: `${targetUser.username} - ${actionKey} given`,
@@ -695,12 +695,12 @@ async function nudge(context) {
     return _roleplayAction(context, 'nudges', 'nudge', roleplayGifs.nudge);
 }
 
-async function flick(context) {
-    return _roleplayAction(context, 'flicks', 'flick', roleplayGifs.flick);
-}
-
 async function poke(context) {
     return _roleplayAction(context, 'pokes', 'poke', roleplayGifs.poke);
+}
+
+async function roleplayfight(context) {
+    return _roleplayAction(context, 'fights', 'fight', roleplayGifs.fight);
 }
 
 async function daily(context) {
@@ -2296,6 +2296,6 @@ module.exports = {
     carry,
     chuck,
     nudge,
-    flick,
-    poke
+    poke,
+    roleplayfight
 };

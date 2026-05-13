@@ -52,8 +52,8 @@ const {
     carry,
     chuck,
     nudge,
-    flick,
-    poke
+    poke,
+    roleplayfight
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -476,17 +476,6 @@ const commandDefinitions = [
         )
         .toJSON(),
     new SlashCommandBuilder()
-        .setName('flick')
-        .setDescription('Flick another user.')
-        .setContexts(0, 1, 2)
-        .addUserOption(option =>
-            option
-            .setName('user')
-            .setDescription('The user to flick.')
-            .setRequired(true)
-        )
-        .toJSON(),
-    new SlashCommandBuilder()
         .setName('poke')
         .setDescription('Poke another user.')
         .setContexts(0, 1, 2)
@@ -494,6 +483,17 @@ const commandDefinitions = [
             option
             .setName('user')
             .setDescription('The user to poke.')
+            .setRequired(true)
+        )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('roleplayfight')
+        .setDescription('Fight another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('opponent')
+            .setDescription('The user to fight against.')
             .setRequired(true)
         )
         .toJSON()
@@ -556,6 +556,10 @@ const commandHandlers = {
         execute: kill,
         cooldown: 3000
     },
+    roleplayfight: {
+        execute: roleplayfight,
+        cooldown: 3000
+    },
     handshake: {
         execute: handshake,
         cooldown: 3000
@@ -570,10 +574,6 @@ const commandHandlers = {
     },
     nudge: {
         execute: nudge,
-        cooldown: 3000
-    },
-    flick: {
-        execute: flick,
         cooldown: 3000
     },
     poke: {
