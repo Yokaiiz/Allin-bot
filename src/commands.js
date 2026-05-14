@@ -111,7 +111,12 @@ async function help(context) {
     const helpButton = new ButtonBuilder()
     .setLabel('Support server')
     .setStyle(ButtonStyle.Link)
-    .setURL('https://discord.gg/MsC3ATzQwn');
+    .setURL('https://discord.gg/kYeXjNjfZH');
+
+    const voteButton = new ButtonBuilder()
+    .setLabel('Vote for us!')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://top.gg/bot/1456367394737098916?s=042cf2840a15a');
 
     const helpSelectMenu = new StringSelectMenuBuilder()
     .setCustomId('help_select_menu')
@@ -125,6 +130,7 @@ async function help(context) {
 
     const buttonRow = new ActionRowBuilder().addComponents(
         helpButton,
+        voteButton
     );
 
     const SelectMenuRow = new ActionRowBuilder().addComponents(
