@@ -1,4 +1,4 @@
-const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, resolveColor } = require("discord.js");
 const { getDBInstance, autoRegUser } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
 const fs = require('fs');
@@ -2651,7 +2651,16 @@ async function handleConfigModal(interaction) {
             break;
         }
         case 'embed_color_modal': {
-            const newColor = interaction.fields.getTextInputValue('embed_color_input');
+            const newColor = interaction.fields.getTextInputValue('embed_color_input').trim();
+            try {
+                resolveColor(newColor);
+            } catch (err) {
+                return interaction.reply({
+                    content:
+                        'Invalid embed color. Use a valid Discord color name or a hex code like #00FF00.',
+                    ephemeral: true
+                });
+            }
             updatedConfig.welcomeEmbedColor = newColor;
             break;
         }

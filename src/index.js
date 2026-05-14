@@ -12,6 +12,7 @@ const {
     StringSelectMenuBuilder,
     ChannelType,
     EmbedBuilder,
+    resolveColor,
     ButtonStyle,
     ComponentType
 } = require("discord.js");
@@ -728,7 +729,12 @@ function registerClientEventHandlers(client) {
                     message = message.replace('{server}', member.guild.name);
 
                     const title = config.welcomeEmbedTitle || 'Welcome!';
-                    const color = config.welcomeEmbedColor || 'Blue';
+                    let color = config.welcomeEmbedColor || 'Blue';
+                    try {
+                        color = resolveColor(color);
+                    } catch (err) {
+                        color = 'Blue';
+                    }
                     const footerText =
                         config.welcomeEmbedFooter ||
                         `Welcome to ${member.guild.name}!`;
