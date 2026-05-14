@@ -10,7 +10,8 @@ const {
     SlashCommandBuilder,
     ActionRowBuilder,
     StringSelectMenuBuilder,
-    GuildMembers
+    GuildMembers,
+    ChannelType
 } = require("discord.js");
 const {
     ping,
@@ -53,7 +54,8 @@ const {
     chuck,
     nudge,
     poke,
-    roleplayfight
+    roleplayfight,
+    config
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -496,6 +498,11 @@ const commandDefinitions = [
             .setDescription('The user to fight against.')
             .setRequired(true)
         )
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('config')
+        .setDescription('Configure bot settings for this server.')
+        .setContexts(0)
         .toJSON()
 ];
 
@@ -663,6 +670,10 @@ const commandHandlers = {
     donate: {
         execute: donate,
         cooldown: 5000
+    },
+    config: {
+        execute: config,
+        cooldown: 1000
     }
 };
 
@@ -681,6 +692,43 @@ function registerClientEventHandlers(client) {
             } catch (error) {
                 console.log('Error handling command:', error);
             }
+        }
+    });
+
+    client.on('guildMemberAdd', async (member) => {
+        try {
+            const db = await getDBInstance();
+            const config = db.get(`config_${member.guild.id}`) || {};
+            const defaultWelcomeMessage = 'Welcome {user} to {server}!';
+            const welcomeText = config.welcomeMessage || defaultWelcomeMessage;
+            
+            if (config.welcomeMessageEnabled) {
+                // Find a system channel or general channel to send welcome message
+                let welcomeChannel = member.guild.systemChannel;
+                
+                if (!welcomeChannel) {
+                    // Try to find a channel named 'general' or 'welcome'
+                    welcomeChannel = member.guild.channels.cache.find(ch => 
+                        ch.type === ChannelType.GuildText && 
+                        (ch.name.toLowerCase().includes('general') || ch.name.toLowerCase().includes('welcome'))
+                    );
+                }
+                
+                if (!welcomeChannel) {
+                    // Use the first text channel as fallback
+                    welcomeChannel = member.guild.channels.cache.find(ch => ch.type === ChannelType.GuildText);
+                }
+                
+                if (welcomeChannel) {
+                    let message = welcomeText;
+                    message = message.replace('{user}', `<@${member.id}>`);
+                    message = message.replace('{server}', member.guild.name);
+                    
+                    await welcomeChannel.send({ content: message });
+                }
+            }
+        } catch (error) {
+            console.error('Error sending welcome message:', error);
         }
     });
 
