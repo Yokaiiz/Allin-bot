@@ -2283,6 +2283,8 @@ async function config(context) {
         const guildId = context.guild.id;
 
         const defaultWelcomeMessage = 'Welcome {user} to {server}!';
+        const defaultEmbedTitle = 'Welcome!';
+        const defaultEmbedColor = 'Blue';
 
         // Function to generate embed dynamically
         const generateEmbed = () => {
@@ -2290,20 +2292,43 @@ async function config(context) {
 
             const welcomeEnabled =
                 latestConfig.welcomeMessageEnabled || false;
-
             const welcomeMessage =
                 latestConfig.welcomeMessage || defaultWelcomeMessage;
+            const welcomeEmbedTitle =
+                latestConfig.welcomeEmbedTitle || defaultEmbedTitle;
+            const welcomeEmbedColor =
+                latestConfig.welcomeEmbedColor || defaultEmbedColor;
+            const welcomeEmbedFooter =
+                latestConfig.welcomeEmbedFooter ||
+                `Welcome to ${context.guild.name}!`;
 
             return new EmbedBuilder()
                 .setTitle('Server Configuration')
                 .setDescription('Select an option to configure:')
-                .addFields({
-                    name: 'Welcome Messages',
-                    value:
-                        `Enabled: ${welcomeEnabled ? 'Yes' : 'No'}\n` +
-                        `Message: ${welcomeMessage}`,
-                    inline: false
-                })
+                .addFields(
+                    {
+                        name: 'Welcome Messages',
+                        value:
+                            `Enabled: ${welcomeEnabled ? 'Yes' : 'No'}\n` +
+                            `Message: ${welcomeMessage}`,
+                        inline: false
+                    },
+                    {
+                        name: 'Embed Title',
+                        value: welcomeEmbedTitle,
+                        inline: false
+                    },
+                    {
+                        name: 'Embed Color',
+                        value: welcomeEmbedColor,
+                        inline: false
+                    },
+                    {
+                        name: 'Footer Text',
+                        value: welcomeEmbedFooter,
+                        inline: false
+                    }
+                )
                 .setColor('Blue');
         };
 
@@ -2323,7 +2348,22 @@ async function config(context) {
                     .setDescription(
                         'Customize the welcome message text'
                     )
-                    .setValue('set_welcome_message')
+                    .setValue('set_welcome_message'),
+
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Embed Title')
+                    .setDescription('Customize the welcome embed title')
+                    .setValue('set_embed_title'),
+
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Embed Color')
+                    .setDescription('Customize the welcome embed color')
+                    .setValue('set_embed_color'),
+
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Footer Text')
+                    .setDescription('Customize the welcome embed footer')
+                    .setValue('set_footer_text')
             ]);
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -2365,7 +2405,7 @@ async function config(context) {
 
                 else if (i.values[0] === 'set_welcome_message') {
                     const modal = new ModalBuilder()
-                        .setCustomId('welcome_message_modal')
+                        .setCustomId(`welcome_message_modal:${message.id}`)
                         .setTitle('Set Welcome Message');
 
                     const messageInput = new TextInputBuilder()
@@ -2382,62 +2422,77 @@ async function config(context) {
                         .setRequired(true)
                         .setMaxLength(1000);
 
-                    const modalRow =
-                        new ActionRowBuilder().addComponents(
-                            messageInput
-                        );
-
-                    modal.addComponents(modalRow);
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(messageInput)
+                    );
 
                     await i.showModal(modal);
+                } else if (i.values[0] === 'set_embed_title') {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`embed_title_modal:${message.id}`)
+                        .setTitle('Set Embed Title');
 
-                    try {
-                        const modalSubmit =
-                            await i.awaitModalSubmit({
-                                filter:
-                                    m =>
-                                        m.customId ===
-                                            'welcome_message_modal' &&
-                                        m.user.id === context.user.id,
-                                time: 300000
-                            });
+                    const titleInput = new TextInputBuilder()
+                        .setCustomId('embed_title_input')
+                        .setLabel('Embed Title')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Welcome!')
+                        .setValue(
+                            latestConfig.welcomeEmbedTitle ||
+                            defaultEmbedTitle
+                        )
+                        .setRequired(true)
+                        .setMaxLength(256);
 
-                        const newMessage =
-                            modalSubmit.fields.getTextInputValue(
-                                'welcome_message_input'
-                            );
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(titleInput)
+                    );
 
-                        db.set(`config_${guildId}`, {
-                            ...latestConfig,
-                            welcomeMessage: newMessage
-                        });
+                    await i.showModal(modal);
+                } else if (i.values[0] === 'set_embed_color') {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`embed_color_modal:${message.id}`)
+                        .setTitle('Set Embed Color');
 
-                        await message.edit({
-                            embeds: [generateEmbed()],
-                            components: [row]
-                        });
+                    const colorInput = new TextInputBuilder()
+                        .setCustomId('embed_color_input')
+                        .setLabel('Embed Color')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Blue or #00FF00')
+                        .setValue(
+                            latestConfig.welcomeEmbedColor ||
+                            defaultEmbedColor
+                        )
+                        .setRequired(true)
+                        .setMaxLength(100);
 
-                        await modalSubmit.reply({
-                            content:
-                                'Welcome message saved successfully.',
-                            ephemeral: true
-                        });
-                    }
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(colorInput)
+                    );
 
-                    catch (error) {
-                        console.error(
-                            'Modal submit failed:',
-                            error
-                        );
+                    await i.showModal(modal);
+                } else if (i.values[0] === 'set_footer_text') {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`footer_text_modal:${message.id}`)
+                        .setTitle('Set Footer Text');
 
-                        if (!i.replied && !i.deferred) {
-                            await i.followUp({
-                                content:
-                                    'The modal timed out. Please try again.',
-                                ephemeral: true
-                            }).catch(() => {});
-                        }
-                    }
+                    const footerInput = new TextInputBuilder()
+                        .setCustomId('footer_text_input')
+                        .setLabel('Footer Text')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Welcome to the server!')
+                        .setValue(
+                            latestConfig.welcomeEmbedFooter ||
+                            `Welcome to ${context.guild.name}!`
+                        )
+                        .setRequired(true)
+                        .setMaxLength(2048);
+
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(footerInput)
+                    );
+
+                    await i.showModal(modal);
                 }
             }
 
@@ -2486,6 +2541,149 @@ async function config(context) {
     }
 }
 
+function buildConfigRow() {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('config_select')
+            .setPlaceholder('Choose a setting to configure')
+            .addOptions([
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Toggle Welcome Messages')
+                    .setDescription('Enable or disable welcome messages')
+                    .setValue('toggle_welcome'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Welcome Message')
+                    .setDescription('Customize the welcome message text')
+                    .setValue('set_welcome_message'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Embed Title')
+                    .setDescription('Customize the welcome embed title')
+                    .setValue('set_embed_title'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Embed Color')
+                    .setDescription('Customize the welcome embed color')
+                    .setValue('set_embed_color'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Footer Text')
+                    .setDescription('Customize the welcome embed footer')
+                    .setValue('set_footer_text')
+            ])
+    );
+}
+
+function buildConfigEmbed(config, guildName) {
+    const defaultWelcomeMessage = 'Welcome {user} to {server}!';
+    const defaultEmbedTitle = 'Welcome!';
+    const defaultEmbedColor = 'Blue';
+
+    const welcomeEnabled = config.welcomeMessageEnabled || false;
+    const welcomeMessage = config.welcomeMessage || defaultWelcomeMessage;
+    const welcomeEmbedTitle = config.welcomeEmbedTitle || defaultEmbedTitle;
+    const welcomeEmbedColor = config.welcomeEmbedColor || defaultEmbedColor;
+    const welcomeEmbedFooter =
+        config.welcomeEmbedFooter || `Welcome to ${guildName}!`;
+
+    return new EmbedBuilder()
+        .setTitle('Server Configuration')
+        .setDescription('Select an option to configure:')
+        .addFields(
+            {
+                name: 'Welcome Messages',
+                value:
+                    `Enabled: ${welcomeEnabled ? 'Yes' : 'No'}\n` +
+                    `Message: ${welcomeMessage}`,
+                inline: false
+            },
+            {
+                name: 'Embed Title',
+                value: welcomeEmbedTitle,
+                inline: false
+            },
+            {
+                name: 'Embed Color',
+                value: welcomeEmbedColor,
+                inline: false
+            },
+            {
+                name: 'Footer Text',
+                value: welcomeEmbedFooter,
+                inline: false
+            }
+        )
+        .setColor('Blue');
+}
+
+async function handleConfigModal(interaction) {
+    if (!interaction.guild) {
+        return interaction.reply({
+            content: 'This modal must be used in a server.',
+            ephemeral: true
+        });
+    }
+
+    const member = await interaction.guild.members
+        .fetch(interaction.user.id)
+        .catch(() => null);
+
+    if (!member || !member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({
+            content: 'You need to be an administrator to change this setting.',
+            ephemeral: true
+        });
+    }
+
+    const db = await getDBInstance();
+    const guildId = interaction.guild.id;
+    const currentConfig = db.get(`config_${guildId}`) || {};
+    let updatedConfig = { ...currentConfig };
+    const [baseId, messageId] = interaction.customId.split(':');
+    let replyText = 'Configuration saved successfully.';
+
+    switch (baseId) {
+        case 'welcome_message_modal': {
+            const newMessage = interaction.fields.getTextInputValue('welcome_message_input');
+            updatedConfig.welcomeMessage = newMessage;
+            break;
+        }
+        case 'embed_title_modal': {
+            const newTitle = interaction.fields.getTextInputValue('embed_title_input');
+            updatedConfig.welcomeEmbedTitle = newTitle;
+            break;
+        }
+        case 'embed_color_modal': {
+            const newColor = interaction.fields.getTextInputValue('embed_color_input');
+            updatedConfig.welcomeEmbedColor = newColor;
+            break;
+        }
+        case 'footer_text_modal': {
+            const newFooter = interaction.fields.getTextInputValue('footer_text_input');
+            updatedConfig.welcomeEmbedFooter = newFooter;
+            break;
+        }
+        default:
+            return interaction.reply({
+                content: 'Unknown modal action.',
+                ephemeral: true
+            });
+    }
+
+    await db.set(`config_${guildId}`, updatedConfig);
+
+    if (messageId && interaction.channel) {
+        const configMessage = await interaction.channel.messages
+            .fetch(messageId)
+            .catch(() => null);
+        if (configMessage) {
+            await configMessage.edit({
+                embeds: [buildConfigEmbed(updatedConfig, interaction.guild.name)],
+                components: [buildConfigRow()]
+            }).catch(() => null);
+        }
+    }
+
+    await interaction.reply({ content: replyText, ephemeral: true });
+}
+
 module.exports = {
     ping,
     help,
@@ -2528,5 +2726,6 @@ module.exports = {
     nudge,
     poke,
     roleplayfight,
-    config
+    config,
+    handleConfigModal
 };

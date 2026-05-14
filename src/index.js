@@ -10,8 +10,10 @@ const {
     SlashCommandBuilder,
     ActionRowBuilder,
     StringSelectMenuBuilder,
-    GuildMembers,
-    ChannelType
+    ChannelType,
+    EmbedBuilder,
+    ButtonStyle,
+    ComponentType
 } = require("discord.js");
 const {
     ping,
@@ -55,19 +57,14 @@ const {
     nudge,
     poke,
     roleplayfight,
-    config
+    config,
+    handleConfigModal
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
 const { JSONFile } = require('lowdb/node');
 const { AutoPoster } = require('topgg-autoposter');
 const path = require('path');
-
-const { EmbedBuilder } = require("@discordjs/builders");
-const {
-    ButtonStyle,
-    ComponentType
-} = require("discord-api-types/v10");
 
 const TOKEN = process.env.BOT_TOKEN;
 const TOPGG_AUTH = process.env.TOPGG_AUTH;
@@ -692,6 +689,12 @@ function registerClientEventHandlers(client) {
             } catch (error) {
                 console.log('Error handling command:', error);
             }
+        } else if (interaction.isModalSubmit()) {
+            try {
+                await handleConfigModal(interaction);
+            } catch (error) {
+                console.log('Error handling modal submit:', error);
+            }
         }
     });
 
@@ -723,8 +726,22 @@ function registerClientEventHandlers(client) {
                     let message = welcomeText;
                     message = message.replace('{user}', `<@${member.id}>`);
                     message = message.replace('{server}', member.guild.name);
-                    
-                    await welcomeChannel.send({ content: message });
+
+                    const title = config.welcomeEmbedTitle || 'Welcome!';
+                    const color = config.welcomeEmbedColor || 'Blue';
+                    const footerText =
+                        config.welcomeEmbedFooter ||
+                        `Welcome to ${member.guild.name}!`;
+
+                    const welcomeEmbed = new EmbedBuilder()
+                        .setTitle(title)
+                        .setDescription(message)
+                        .setColor(color)
+                        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+                        .setFooter({ text: footerText })
+                        .setTimestamp();
+
+                    await welcomeChannel.send({ embeds: [welcomeEmbed] });
                 }
             }
         } catch (error) {
