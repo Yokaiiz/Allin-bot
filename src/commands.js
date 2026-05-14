@@ -2256,131 +2256,233 @@ async function donate(context) {
 }
 
 async function config(context) {
-    if (!context.guild) return context.reply({ content: 'This command must be used in a server/guild.', ephemeral: true });
-
-    // Check if user has admin permissions
-    const executorMember = context.guild.members.cache.get(context.user.id);
-    if (!executorMember || !executorMember.permissions.has(PermissionFlagsBits.Administrator)) {
-        return context.reply({ content: 'You need to be an administrator to use this command.', ephemeral: true });
-    }
-
-    const db = await getDBInstance();
-    const guildId = context.guild.id;
-    const currentConfig = db.get(`config_${guildId}`) || {};
-    const defaultWelcomeMessage = 'Welcome {user} to {server}!';
-
-    // Configuration options
-    const welcomeEnabled = currentConfig.welcomeMessageEnabled || false;
-    const welcomeMessage = currentConfig.welcomeMessage || defaultWelcomeMessage;
-
-    const embed = new EmbedBuilder()
-        .setTitle('Server Configuration')
-        .setDescription('Select an option to configure:')
-        .addFields(
-            { name: 'Welcome Messages', value: `Enabled: ${welcomeEnabled ? 'Yes' : 'No'}\nMessage: ${welcomeMessage}`, inline: false }
-        )
-        .setColor('Blue');
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('config_select')
-        .setPlaceholder('Choose a setting to configure')
-        .addOptions([
-            new StringSelectMenuOptionBuilder()
-                .setLabel('Toggle Welcome Messages')
-                .setDescription(`${welcomeEnabled ? 'Disable' : 'Enable'} welcome messages for new members`)
-                .setValue('toggle_welcome'),
-            new StringSelectMenuOptionBuilder()
-                .setLabel('Set Welcome Message')
-                .setDescription('Customize the welcome message text')
-                .setValue('set_welcome_message'),
-        ]);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    await context.deferReply({ ephemeral: true });
 
     try {
-        const message = await context.reply({ embeds: [embed], components: [row], fetchReply: true });
+        if (!context.guild) {
+            return context.editReply({
+                content: 'This command must be used in a server/guild.'
+            });
+        }
+
+        // Check admin permissions
+        const executorMember = await context.guild.members
+            .fetch(context.user.id)
+            .catch(() => null);
+
+        if (
+            !executorMember ||
+            !executorMember.permissions.has(PermissionFlagsBits.Administrator)
+        ) {
+            return context.editReply({
+                content: 'You need to be an administrator to use this command.'
+            });
+        }
+
+        const db = await getDBInstance();
+        const guildId = context.guild.id;
+
+        const defaultWelcomeMessage = 'Welcome {user} to {server}!';
+
+        // Function to generate embed dynamically
+        const generateEmbed = () => {
+            const latestConfig = db.get(`config_${guildId}`) || {};
+
+            const welcomeEnabled =
+                latestConfig.welcomeMessageEnabled || false;
+
+            const welcomeMessage =
+                latestConfig.welcomeMessage || defaultWelcomeMessage;
+
+            return new EmbedBuilder()
+                .setTitle('Server Configuration')
+                .setDescription('Select an option to configure:')
+                .addFields({
+                    name: 'Welcome Messages',
+                    value:
+                        `Enabled: ${welcomeEnabled ? 'Yes' : 'No'}\n` +
+                        `Message: ${welcomeMessage}`,
+                    inline: false
+                })
+                .setColor('Blue');
+        };
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('config_select')
+            .setPlaceholder('Choose a setting to configure')
+            .addOptions([
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Toggle Welcome Messages')
+                    .setDescription(
+                        'Enable or disable welcome messages'
+                    )
+                    .setValue('toggle_welcome'),
+
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Set Welcome Message')
+                    .setDescription(
+                        'Customize the welcome message text'
+                    )
+                    .setValue('set_welcome_message')
+            ]);
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+
+        const message = await context.editReply({
+            embeds: [generateEmbed()],
+            components: [row],
+            fetchReply: true
+        });
 
         const collector = message.createMessageComponentCollector({
             componentType: ComponentType.StringSelect,
-            time: 300000, // 5 minutes
+            time: 300000,
             filter: i => i.user.id === context.user.id
         });
 
         collector.on('collect', async i => {
-            if (i.values[0] === 'toggle_welcome') {
-                const newValue = !welcomeEnabled;
-                const updatedConfig = {
-                    ...currentConfig,
-                    welcomeMessageEnabled: newValue,
-                    welcomeMessage: currentConfig.welcomeMessage || defaultWelcomeMessage
-                };
-                db.set(`config_${guildId}`, updatedConfig);
-                
-                const updatedEmbed = new EmbedBuilder()
-                    .setTitle('Server Configuration')
-                    .setDescription('Select an option to configure:')
-                    .addFields(
-                        { name: 'Welcome Messages', value: `Enabled: ${newValue ? 'Yes' : 'No'}\nMessage: ${updatedConfig.welcomeMessage}`, inline: false }
-                    )
-                    .setColor('Blue');
-                
-                await i.update({ embeds: [updatedEmbed], components: [row] });
-            } else if (i.values[0] === 'set_welcome_message') {
-                // Show modal for setting the message
-                const modal = new ModalBuilder()
-                    .setCustomId('welcome_message_modal')
-                    .setTitle('Set Welcome Message');
+            try {
+                const latestConfig =
+                    db.get(`config_${guildId}`) || {};
 
-                const messageInput = new TextInputBuilder()
-                    .setCustomId('welcome_message_input')
-                    .setLabel('Welcome Message')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setPlaceholder('Use {user} for username, {server} for server name')
-                    .setValue(welcomeMessage)
-                    .setRequired(true)
-                    .setMaxLength(1000);
+                if (i.values[0] === 'toggle_welcome') {
+                    const newValue =
+                        !latestConfig.welcomeMessageEnabled;
 
-                const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
-                modal.addComponents(firstActionRow);
+                    db.set(`config_${guildId}`, {
+                        ...latestConfig,
+                        welcomeMessageEnabled: newValue,
+                        welcomeMessage:
+                            latestConfig.welcomeMessage ||
+                            defaultWelcomeMessage
+                    });
 
-                await i.showModal(modal);
+                    await i.update({
+                        embeds: [generateEmbed()],
+                        components: [row]
+                    });
+                }
+
+                else if (i.values[0] === 'set_welcome_message') {
+                    const modal = new ModalBuilder()
+                        .setCustomId('welcome_message_modal')
+                        .setTitle('Set Welcome Message');
+
+                    const messageInput = new TextInputBuilder()
+                        .setCustomId('welcome_message_input')
+                        .setLabel('Welcome Message')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder(
+                            'Use {user} for username, {server} for server name'
+                        )
+                        .setValue(
+                            latestConfig.welcomeMessage ||
+                            defaultWelcomeMessage
+                        )
+                        .setRequired(true)
+                        .setMaxLength(1000);
+
+                    const modalRow =
+                        new ActionRowBuilder().addComponents(
+                            messageInput
+                        );
+
+                    modal.addComponents(modalRow);
+
+                    await i.showModal(modal);
+
+                    try {
+                        const modalSubmit =
+                            await i.awaitModalSubmit({
+                                filter:
+                                    m =>
+                                        m.customId ===
+                                            'welcome_message_modal' &&
+                                        m.user.id === context.user.id,
+                                time: 300000
+                            });
+
+                        const newMessage =
+                            modalSubmit.fields.getTextInputValue(
+                                'welcome_message_input'
+                            );
+
+                        db.set(`config_${guildId}`, {
+                            ...latestConfig,
+                            welcomeMessage: newMessage
+                        });
+
+                        await message.edit({
+                            embeds: [generateEmbed()],
+                            components: [row]
+                        });
+
+                        await modalSubmit.reply({
+                            content:
+                                'Welcome message saved successfully.',
+                            ephemeral: true
+                        });
+                    }
+
+                    catch (error) {
+                        console.error(
+                            'Modal submit failed:',
+                            error
+                        );
+
+                        if (!i.replied && !i.deferred) {
+                            await i.followUp({
+                                content:
+                                    'The modal timed out. Please try again.',
+                                ephemeral: true
+                            }).catch(() => {});
+                        }
+                    }
+                }
+            }
+
+            catch (error) {
+                console.error(
+                    'Collector interaction failed:',
+                    error
+                );
+
+                if (!i.replied && !i.deferred) {
+                    await i.reply({
+                        content:
+                            'An error occurred while processing this action.',
+                        ephemeral: true
+                    }).catch(() => {});
+                }
             }
         });
 
-        // Handle modal submission
-        const modalCollector = message.createMessageComponentCollector({
-            componentType: ComponentType.ModalSubmit,
-            time: 300000,
-            filter: i => i.user.id === context.user.id && i.customId === 'welcome_message_modal'
-        });
-
-        modalCollector.on('collect', async i => {
-            const newMessage = i.fields.getTextInputValue('welcome_message_input');
-            const updatedConfig = {
-                ...currentConfig,
-                welcomeMessage: newMessage,
-                welcomeMessageEnabled: currentConfig.welcomeMessageEnabled || false
-            };
-            db.set(`config_${guildId}`, updatedConfig);
-            
-            const updatedEmbed = new EmbedBuilder()
-                .setTitle('Server Configuration')
-                .setDescription('Select an option to configure:')
-                .addFields(
-                    { name: 'Welcome Messages', value: `Enabled: ${updatedConfig.welcomeMessageEnabled ? 'Yes' : 'No'}\nMessage: ${newMessage}`, inline: false }
-                )
-                .setColor('Blue');
-            
-            await i.update({ embeds: [updatedEmbed], components: [row] });
-        });
-
         collector.on('end', async () => {
-            try { await message.edit({ components: [] }); } catch {}
+            try {
+                await message.edit({
+                    components: []
+                });
+            } catch {}
         });
+    }
 
-    } catch (e) {
-        console.error('Config command failed:', e);
-        return context.reply({ content: 'An error occurred while opening the configuration menu. Please try again later.', ephemeral: true });
+    catch (error) {
+        console.error('Config command failed:', error);
+
+        try {
+            if (context.deferred || context.replied) {
+                await context.editReply({
+                    content:
+                        'An error occurred while opening the configuration menu.'
+                });
+            } else {
+                await context.reply({
+                    content:
+                        'An error occurred while opening the configuration menu.',
+                    ephemeral: true
+                });
+            }
+        } catch {}
     }
 }
 
