@@ -563,7 +563,7 @@ async function _roleplayAction(context, actionKey, actionVerb, gifPack) {
 
     const recipButton = new ButtonBuilder()
         .setCustomId(`rp_rec_${actionKey}_${actor.id}_${targetUser.id}`)
-        .setLabel('Reciprocate')
+        .setLabel('Return back')
         .setStyle(ButtonStyle.Primary);
 
     const declineButton = new ButtonBuilder()
@@ -694,7 +694,7 @@ async function carry(context) {
 }
 
 async function chuck(context) {
-    return _roleplayAction(context, 'chucks', 'chuck', roleplayGifs.chuck);
+    return _roleplayAction(context, 'chucks at', 'chuck', roleplayGifs.chuck);
 }
 
 async function nudge(context) {
