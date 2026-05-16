@@ -3,6 +3,7 @@
         "name": "Atomic",
         "id": "atomic",
         "description": "Cid Kagenou's nuclear technique.",
+        "allowedUsers": ["1391064250813779990", "994235594135842846", "961370035555811388"],
         "techniques": [
             {
                 "name": "I am Atomic",

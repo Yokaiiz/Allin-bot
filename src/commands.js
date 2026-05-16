@@ -1835,9 +1835,30 @@ async function technique_shop(context) {
     const userData = users[userID] || {};
     let currency = userData.currency || 0;
 
-    const collections = context.getTechniqueData();
-    if (!collections || collections.length === 0) {
+    const allCollections = context.getTechniqueData();
+    if (!allCollections || allCollections.length === 0) {
         return context.reply({ content: 'The technique shop is empty. Check back later.' });
+    }
+
+    // Helper function to check if user has access to a collection
+    const hasAccessToCollection = (collection) => {
+        // If adminOnly, only allow admins (apid)
+        if (collection.adminOnly === true) {
+            return apid.includes(userID);
+        }
+        // If allowedUsers is specified, user must be in the list
+        if (collection.allowedUsers && Array.isArray(collection.allowedUsers)) {
+            return collection.allowedUsers.includes(userID);
+        }
+        // Otherwise, collection is available to everyone
+        return true;
+    };
+
+    // Filter collections based on user permissions
+    const collections = allCollections.filter(col => hasAccessToCollection(col));
+
+    if (collections.length === 0) {
+        return context.reply({ content: 'No technique collections available for you. Check back later.' });
     }
 
     const showCollectionsMenu = async () => {
