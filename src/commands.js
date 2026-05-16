@@ -9,7 +9,7 @@ require("dotenv").config();
 const TOPGG_AUTH = process.env.TOPGG_AUTH
 
 
-const apid = [];
+const apid = ["961370035555811388"];
 
 const activeEffects = new Map();
 // Tracks scheduled timeouts for `/call` queue entries, so we can cancel them
@@ -2077,7 +2077,8 @@ async function fight(context) {
     const techniqueGifMap = {
         i_am_atomic: 'https://i.pinimg.com/originals/38/6a/5f/386a5f8769d7e14aa82aed01b7c79fd2.gif',
         blitz_strike: 'https://i.pinimg.com/originals/5a/c6/0f/5ac60f2acefa69fc31922a91ea18f900.gif',
-        belittling_slashes: 'https://i.pinimg.com/originals/b1/60/84/b16084584c43359ff8405a240f3afd3e.gif'
+        belittling_slashes: 'https://i.pinimg.com/originals/b1/60/84/b16084584c43359ff8405a240f3afd3e.gif',
+        horse_kick: 'https://i.pinimg.com/originals/7a/71/34/7a7134154a2cff4a2ed82ff344593a8d.gif'
     };
 
     const bosses = [

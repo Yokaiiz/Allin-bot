@@ -33,5 +33,22 @@
                 "price": 95000
             }
         ]
+    },
+    {
+        "name": "HORSE",
+        "id": "horse",
+        "description": "a literal horse technique",
+        "allowedUsers": ["961370035555811388", "994235594135842846"],
+        "techniques": [
+            {
+                "name": "Horse Kick",
+                "id": "horse_kick",
+                "description": "You kick your enemy with the power of a horse, dealing 100% of your ATK as damage.",
+                "cooldown": 10,
+                "effect": "horse_kick",
+                "damage": 100000000,
+                "price": 50000
+            }
+        ]
     }
 ]
