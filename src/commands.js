@@ -2053,113 +2053,281 @@ async function fight(context) {
         return context.reply({ content: "Your techniques could not be found." });
     }
 
+    const techniqueGifMap = {
+        i_am_atomic: 'https://media.tenor.com/1pRjNKPmutgAAAAC/explosion.gif',
+        blitz_strike: 'https://media.tenor.com/6e7XpxeUepoAAAAC/sword-swing.gif',
+        belittling_slashes: 'https://media.tenor.com/OA0hAbkBn1UAAAAC/anime-sword.gif'
+    };
+
     const bosses = [
-        { name: "Goblin King", hp: 60, attack: 6, gif: "https://media.tenor.com/7qF8GZ6qKQAAAAAC/goblin.gif" },
-        { name: "Shadow Beast", hp: 90, attack: 9, gif: "https://media.tenor.com/fh9Y5z3YyU4AAAAC/shadow-monster.gif" },
-        { name: "Ancient Dragon", hp: 130, attack: 13, gif: "https://media.tenor.com/mB4xR1O7i9kAAAAC/dragon-fire.gif" }
+        {
+            name: 'Goblin King',
+            hp: 300,
+            gif: 'https://media.tenor.com/7qF8GZ6qKQAAAAAC/goblin.gif',
+            techniques: [
+                {
+                    name: 'Goblin Tramp',
+                    damage: 35,
+                    effect: 'stun',
+                    gif: 'https://media.tenor.com/7_M8H1X6M8QAAAAC/goblin-stomp.gif',
+                    description: 'A powerful stomp that can stun the player for 1 turn.'
+                },
+                {
+                    name: 'Curve Ball',
+                    damage: 40,
+                    effect: 'critical_hit',
+                    gif: 'https://media.tenor.com/_DPCV4BZMn4AAAAC/goblin-throw.gif',
+                    description: 'A sneaky attack that has a chance to deal double damage.'
+                }
+            ]
+        },
+        {
+            name: 'Shadow Beast',
+            hp: 450,
+            gif: 'https://media.tenor.com/fh9Y5z3YyU4AAAAC/shadow-monster.gif',
+            techniques: [
+                {
+                    name: 'Shadow Slash',
+                    damage: 50,
+                    effect: 'bleed',
+                    gif: 'https://media.tenor.com/xUiQ8KtnF1IAAAAC/shadow-slash.gif',
+                    description: 'A dark slash that causes the player to bleed for the next 3 turns.'
+                },
+                {
+                    name: 'Nightmare Roar',
+                    damage: 25,
+                    effect: 'fear',
+                    gif: 'https://media.tenor.com/XjD3jzZsNaUAAAAC/roar.gif',
+                    description: 'A terrifying roar that may make the player lose their next turn.'
+                }
+            ]
+        },
+        {
+            name: 'Ancient Dragon',
+            hp: 600,
+            gif: 'https://media.tenor.com/mB4xR1O7i9kAAAAC/dragon-fire.gif',
+            techniques: [
+                {
+                    name: 'Dragon Fire',
+                    damage: 60,
+                    effect: 'burn',
+                    gif: 'https://media.tenor.com/6giVNVF3cSidAAAAC/dragon-breath.gif',
+                    description: 'A fiery breath that burns the player for the next 4 turns.'
+                },
+                {
+                    name: 'Tail Sweep',
+                    damage: 45,
+                    effect: 'knockback',
+                    gif: 'https://media.tenor.com/XQW8qeL4K3oAAAAC/tail-swipe.gif',
+                    description: 'A sweeping attack that may make the player miss their next turn.'
+                }
+            ]
+        }
     ];
 
     const boss = bosses[Math.floor(Math.random() * bosses.length)];
-
     let playerHp = 100;
     let bossHp = boss.hp;
     const fightLog = [];
     const cooldowns = {};
+    const playerStatus = {
+        stunned: 0,
+        bleeding: 0,
+        burning: 0,
+        skipNextTurn: false
+    };
+    const bossStatus = {
+        vulnerable: 0
+    };
+
+    function getTechniqueGif(tech) {
+        if (tech.gif) return tech.gif;
+        return techniqueGifMap[tech.id] || null;
+    }
+
+    function chooseBossAttack() {
+        if (!boss.techniques || boss.techniques.length === 0) {
+            return { name: 'Brutal Strike', damage: 20, effect: null, gif: boss.gif };
+        }
+        return boss.techniques[Math.floor(Math.random() * boss.techniques.length)];
+    }
+
+    function applyStatusEffects() {
+        if (playerStatus.bleeding > 0) {
+            playerHp -= 10;
+            fightLog.push(`🩸 Bleeding deals **10** damage (${playerStatus.bleeding} turns remaining)`);
+            playerStatus.bleeding -= 1;
+        }
+        if (playerStatus.burning > 0) {
+            playerHp -= 15;
+            fightLog.push(`🔥 Burning deals **15** damage (${playerStatus.burning} turns remaining)`);
+            playerStatus.burning -= 1;
+        }
+    }
 
     function createMenu() {
         return new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
-                .setCustomId("fight_move")
-                .setPlaceholder("Choose a technique")
+                .setCustomId('fight_move')
+                .setPlaceholder('Choose a technique')
                 .addOptions(
                     playerTechniques.map(t => ({
                         label: t.name,
-                        description: cooldowns[t.id] > 0 ? `Cooldown: ${cooldowns[t.id]}` : `Damage: ${t.damage}`,
+                        description: cooldowns[t.id] > 0 ? `Cooldown: ${cooldowns[t.id]}` : `Damage: ${t.damage || 5}`,
                         value: t.id
                     }))
                 )
         );
     }
 
+    const client = context.interaction ? context.interaction.client : (context.message ? context.message.client : null);
     const embed = new EmbedBuilder()
         .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
         .setDescription(`❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
-        .setImage(boss.gif)
+        .setAuthor({
+            name: client?.user?.username || 'Allin Bot',
+            iconURL: client?.user?.displayAvatarURL?.() || null
+        })
+        .setThumbnail(context.user.displayAvatarURL())
         .setColor(0xff0000);
 
     await context.reply({ embeds: [embed], components: [createMenu()] });
-
     const message = await context.interaction.fetchReply();
 
     const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
         filter: i => i.user.id === context.user.id,
         time: 120000
     });
 
-    collector.on("collect", async interaction => {
-        await interaction.deferUpdate(); // defer once per interaction
+    collector.on('collect', async interaction => {
+        if (playerHp <= 0 || bossHp <= 0) return;
 
-        const techId = interaction.values[0];
-        const technique = playerTechniques.find(t => t.id === techId);
-        if (!technique) return;
-
-        // Handle cooldown
-        if (cooldowns[techId] > 0) {
-            fightLog.push(`⏳ ${technique.name} is on cooldown.`);
-        } else {
-            const playerDamage = technique.damage || 5;
-            bossHp -= playerDamage;
-            fightLog.push(`💥 **${technique.name}** dealt **${playerDamage}** damage`);
-            cooldowns[techId] = technique.cooldown || 0;
-        }
-
-        // Boss defeated
-        if (bossHp <= 0) {
-            const reward = Math.floor(Math.random() * 80) + 20;
-            user.money = (user.money || 0) + reward;
-            await db.set("users", users);
-
-            const winEmbed = new EmbedBuilder()
-                .setTitle("🎉 Victory!")
-                .setDescription(`${fightLog.join("\n")}\n\n🏆 You defeated **${boss.name}**\n💰 Reward: **${reward} coins**`)
-                .setImage("https://media.tenor.com/JgJmYH8QnJ8AAAAC/anime-victory.gif")
-                .setColor(0x00ff00);
-
-            collector.stop();
-            return interaction.editReply({ embeds: [winEmbed], components: [] });
-        }
-
-        // Boss attacks
-        const bossDamage = boss.attack;
-        playerHp -= bossDamage;
-        fightLog.push(`⚔️ **${boss.name}** dealt **${bossDamage}** damage`);
-
-        // Player defeated
+        applyStatusEffects();
         if (playerHp <= 0) {
             const loseEmbed = new EmbedBuilder()
-                .setTitle("💀 Defeat")
-                .setDescription(`${fightLog.join("\n")}\n\nYou were defeated by **${boss.name}**`)
-                .setImage("https://media.tenor.com/Vh9Wb7mLzK8AAAAC/anime-defeat.gif")
+                .setTitle('💀 Defeat')
+                .setDescription(`${fightLog.join('\n')}\n\nYou were defeated by **${boss.name}**`)
+                .setImage('https://media.tenor.com/Vh9Wb7mLzK8AAAAC/anime-defeat.gif')
                 .setColor(0xff0000);
-
             collector.stop();
-            return interaction.editReply({ embeds: [loseEmbed], components: [] });
+            return interaction.update({ embeds: [loseEmbed], components: [] });
         }
 
-        // Reduce cooldowns
+        if (playerStatus.skipNextTurn) {
+            fightLog.push(`😵 ${boss.name} keeps you off balance and you skip this turn.`);
+            playerStatus.skipNextTurn = false;
+        } else {
+            const techId = interaction.values[0];
+            const technique = playerTechniques.find(t => t.id === techId);
+            if (!technique) return;
+
+            if (cooldowns[techId] > 0) {
+                fightLog.push(`⏳ ${technique.name} is on cooldown.`);
+            } else {
+                let damage = calculateDamage(technique.damage || 5);
+                if (bossStatus.vulnerable > 0) {
+                    damage += 10;
+                    fightLog.push(`💥 ${boss.name} is vulnerable, taking **10** additional damage!`);
+                    bossStatus.vulnerable -= 1;
+                }
+
+                if (technique.effect === 'lightspeed_cut' && Math.random() < 0.25) {
+                    damage *= 2;
+                    fightLog.push('⚡ Critical speed strike! Damage doubled.');
+                }
+                if (technique.effect === 'belittling_slashes') {
+                    bossStatus.vulnerable = Math.max(bossStatus.vulnerable, 1);
+                    fightLog.push('🩸 The boss is weakened and vulnerable to the next attack.');
+                }
+
+                bossHp -= damage;
+                fightLog.push(`💥 **${technique.name}** dealt **${damage}** damage.`);
+                cooldowns[techId] = technique.cooldown || 0;
+
+                const techniqueGif = getTechniqueGif(technique);
+                if (techniqueGif) {
+                    fightLog.push(`📽️ ${technique.name} animation plays.`);
+                }
+
+                if (bossHp <= 0) {
+                    const reward = Math.floor(Math.random() * 80) + 20;
+                    user.money = (user.money || 0) + reward;
+                    await db.set('users', users);
+
+                    const winEmbed = new EmbedBuilder()
+                        .setTitle('🎉 Victory!')
+                        .setDescription(`${fightLog.join('\n')}\n\n🏆 You defeated **${boss.name}**\n💰 Reward: **${reward} coins**`)
+                        .setImage(techniqueGif || boss.gif)
+                        .setColor(0x00ff00);
+
+                    collector.stop();
+                    return interaction.update({ embeds: [winEmbed], components: [] });
+                }
+
+                const attackGif = techniqueGif || boss.gif;
+                const turnEmbed = new EmbedBuilder()
+                    .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
+                    .setDescription(`${fightLog.slice(-4).join('\n')}\n\n❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
+                    .setImage(attackGif)
+                    .setColor(0xff9900);
+
+                await interaction.update({ embeds: [turnEmbed], components: [createMenu()] });
+                return;
+            }
+        }
+
+        // Boss turn processing
+        const bossAttack = chooseBossAttack();
+        let bossDamage = calculateDamage(bossAttack.damage || 10);
+        let bossGif = bossAttack.gif || boss.gif;
+
+        if (bossAttack.effect === 'critical_hit' && Math.random() < 0.25) {
+            bossDamage *= 2;
+            fightLog.push('💥 Critical boss strike!');
+        }
+        if (bossAttack.effect === 'stun') {
+            playerStatus.skipNextTurn = true;
+            fightLog.push(`😵 **${boss.name}** used **${bossAttack.name}** and stunned you!`);
+        }
+        if (bossAttack.effect === 'bleed') {
+            playerStatus.bleeding = 3;
+            fightLog.push(`🩸 **${boss.name}** caused bleeding with **${bossAttack.name}**!`);
+        }
+        if (bossAttack.effect === 'burn') {
+            playerStatus.burning = 4;
+            fightLog.push(`🔥 **${boss.name}** burned you with **${bossAttack.name}**!`);
+        }
+        if (bossAttack.effect === 'fear' || bossAttack.effect === 'knockback') {
+            playerStatus.skipNextTurn = true;
+            fightLog.push(`😱 **${boss.name}** used **${bossAttack.name}** and you will lose your next turn.`);
+        }
+
+        playerHp -= bossDamage;
+        fightLog.push(`⚔️ **${boss.name}** used **${bossAttack.name}** and dealt **${bossDamage}** damage.`);
+
+        if (playerHp <= 0) {
+            const loseEmbed = new EmbedBuilder()
+                .setTitle('💀 Defeat')
+                .setDescription(`${fightLog.join('\n')}\n\nYou were defeated by **${boss.name}**`)
+                .setImage(bossGif)
+                .setColor(0xff0000);
+            collector.stop();
+            return interaction.update({ embeds: [loseEmbed], components: [] });
+        }
+
         for (const key in cooldowns) if (cooldowns[key] > 0) cooldowns[key]--;
 
-        // Update embed for next turn
         const turnEmbed = new EmbedBuilder()
             .setTitle(`⚔️ ${context.user.username} vs ${boss.name}`)
-            .setDescription(`${fightLog.slice(-4).join("\n")}\n\n❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
-            .setImage(boss.gif)
+            .setDescription(`${fightLog.slice(-4).join('\n')}\n\n❤️ Your HP: **${playerHp}**\n👹 Boss HP: **${bossHp}**`)
+            .setImage(bossGif)
             .setColor(0xff9900);
 
-        await interaction.editReply({ embeds: [turnEmbed], components: [createMenu()] });
+        await interaction.update({ embeds: [turnEmbed], components: [createMenu()] });
     });
 
-    collector.on("end", async () => {
+    collector.on('end', async () => {
         try { await message.edit({ components: [] }); } catch {}
     });
 }
