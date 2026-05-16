@@ -2054,9 +2054,9 @@ async function fight(context) {
     }
 
     const techniqueGifMap = {
-        i_am_atomic: 'https://media.tenor.com/1pRjNKPmutgAAAAC/explosion.gif',
-        blitz_strike: 'https://media.tenor.com/6e7XpxeUepoAAAAC/sword-swing.gif',
-        belittling_slashes: 'https://media.tenor.com/OA0hAbkBn1UAAAAC/anime-sword.gif'
+        i_am_atomic: 'https://i.pinimg.com/originals/38/6a/5f/386a5f8769d7e14aa82aed01b7c79fd2.gif',
+        blitz_strike: 'https://i.pinimg.com/originals/5a/c6/0f/5ac60f2acefa69fc31922a91ea18f900.gif',
+        belittling_slashes: 'https://i.pinimg.com/originals/b1/60/84/b16084584c43359ff8405a240f3afd3e.gif'
     };
 
     const bosses = [
