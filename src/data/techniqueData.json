@@ -8,7 +8,7 @@
                 "name": "I am Atomic",
                 "id": "i_am_atomic",
                 "description": "you become a nuclear bomb, dealing 100% of your ATK as damage to all enemies and yourself. You will be left with 1 HP after using this technique.",
-                "cooldown": 10,
+                "cooldown": 15,
                 "effect": "atomic_bomb",
                 "damage": 50000,
                 "price": 100000
@@ -19,7 +19,17 @@
                 "description": "You speed blitz your enemy and cut through their torso in one swift motion",
                 "effect": "lightspeed_cut",
                 "damage": 5000,
-                "price": 85000
+                "price": 85000,
+                "cooldown": 5
+            },
+            {
+                "name": "belittling slashes",
+                "id": "belittling_slashes",
+                "description": "You deliver multiple slashes to your enemy, effectively belittling them by showing your expertise in swordmanship",
+                "cooldown": 10,
+                "effect": "belittling_slashes",
+                "damage": 10000,
+                "price": 95000
             }
         ]
     }
