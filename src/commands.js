@@ -2091,14 +2091,14 @@ async function fight(context) {
                     name: 'Goblin Tramp',
                     damage: 35,
                     effect: 'stun',
-                    gif: 'https://media.tenor.com/7_M8H1X6M8QAAAAC/goblin-stomp.gif',
+                    gif: 'https://i.pinimg.com/originals/1e/5c/b4/1e5cb4d48735e5b748269e6e2812062a.gif',
                     description: 'A powerful stomp that can stun the player for 1 turn.'
                 },
                 {
                     name: 'Curve Ball',
                     damage: 40,
                     effect: 'critical_hit',
-                    gif: 'https://media.tenor.com/_DPCV4BZMn4AAAAC/goblin-throw.gif',
+                    gif: 'https://i.pinimg.com/originals/9c/75/bf/9c75bfa14afe8d6f63231dda24b1a34d.gif',
                     description: 'A sneaky attack that has a chance to deal double damage.'
                 }
             ]
