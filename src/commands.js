@@ -9,7 +9,7 @@ require("dotenv").config();
 const TOPGG_AUTH = process.env.TOPGG_AUTH
 
 
-const apid = ["292385626773258240", "961370035555811388"]
+const apid = [];
 
 const activeEffects = new Map();
 // Tracks scheduled timeouts for `/call` queue entries, so we can cancel them
