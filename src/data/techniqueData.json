@@ -50,5 +50,55 @@
                 "price": 50000
             }
         ]
+    },
+    {
+        "name": "Hollowed Shinigami",
+        "id": "hollowed_shinigami",
+        "description": "the technique of a hollowed shinigami.",
+        "techniques": [
+            {
+                "name": "Getsuga Tenshou",
+                "id": "getsuga_tenshou",
+                "description": "You release a powerful blast of spiritual energy from your sword, dealing 100% of your ATK as damage to all enemies in a straight line.",
+                "cooldown": 15,
+                "damage": 150,
+                "price": 2500
+            },
+            {
+                "name": "Getsuga Juujinshou",
+                "id": "getsuga_juujinshou",
+                "description": "You release a powerful blast of spiritual energy from your sword, dealing 150% of your ATK as damage to all enemies in a straight line.",
+                "cooldown": 20,
+                "damage": 250,
+                "price": 5000
+            },
+            {
+                "name": "BANKAI: Tensa Zangetsu",
+                "id": "bankai_tensa_zangetsu",
+                "description": "You enter your bankai state, increasing your ATK by 50% for 3 turns and dealing 200% of your ATK as damage to all enemies in a straight line.",
+                "cooldown": 30,
+                "damage": 500,
+                "price": 10000,
+                "effect": "awakening"
+            },
+            {
+                "name": "Hollow Mask",
+                "id": "hollow_mask",
+                "description": "You don your hollow mask, increasing your ATK by 25% for 3 turns and dealing 150% of your ATK as damage to all enemies in a straight line.",
+                "cooldown": 20,
+                "damage": 300,
+                "price": 7500,
+                "effect": "hollowification"
+            },
+            {
+                "name": "Cero",
+                "id": "cero",
+                "description": "You fire a powerful blast of spiritual energy from your hand, dealing 200% of your ATK as damage to all enemies in a straight line.",
+                "cooldown": 25,
+                "damage": 400,
+                "price": 7500,
+                "effect": "cero_blast"
+            }
+        ]
     }
 ]

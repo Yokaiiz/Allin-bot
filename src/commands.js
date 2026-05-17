@@ -2262,6 +2262,20 @@ async function fight(context) {
                     bossStatus.vulnerable = Math.max(bossStatus.vulnerable, 1);
                     fightLog.push('🩸 The boss is weakened and vulnerable to the next attack.');
                 }
+                if (technique.effect === 'awakening') {
+                    damage *= 0.5;
+                    fightLog.push('Ultimate awakening unleashed, you have received a massive power boost.')
+                }
+                if (technique.effect === 'hollowification') {
+                    damage *= 0.25;
+                    playerHp += 50;
+                    fightLog.push('You have been hollowified, increasing your damage by 25% and health by 50 points.')
+                }
+                if (technique.effect === 'cero_blast') {
+                    damage *= 2.0;
+                    bossStatus.vulnerable = Math.max(bossStatus.vulnerable, 2);
+                    fightLog.push('You fired a powerful Cero Blast, dealing massive damage and leaving the boss vulnerable for 2 turns!');
+                }
 
                 bossHp -= damage;
                 fightLog.push(`💥 **${technique.name}** dealt **${damage}** damage.`);
