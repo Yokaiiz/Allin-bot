@@ -186,7 +186,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person\n`/unuequip_technique` - unequip a technique that you have equipped so you can equip another one in its place.'
                 },
                 {
                     name: 'Roleplay Commands',
