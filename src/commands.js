@@ -186,7 +186,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person\n`/unuequip_technique` - unequip a technique that you have equipped so you can equip another one in its place.\n`/work` - Work a job to earn some money (WIP).\n`/switch_work` - Switch to a different job.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person\n`/unuequip_technique` - unequip a technique that you have equipped so you can equip another one in its place.\n`/work` - Work a job to earn some money (WIP).\n`/switch_work` - Switch to a different job.\n`/steal` - Attempt to steal money from another user. (WIP)'
                 },
                 {
                     name: 'Roleplay Commands',
@@ -3428,9 +3428,68 @@ async function switch_work(context) {
                 // Ignore edit errors
             }
         }});
+}
 
-        
+async function steal(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const userData = users[userId] || {};
+    const currency = userData.currency || 0;
 
+    const targetUser = context.options.getUser('target');
+    if (!targetUser) {
+        return context.reply({
+            content: 'You must specify a user to steal from.',
+            ephemeral: true
+        });
+    }
+
+    if (targetUser.id === userId) {
+        return context.reply({
+            content: 'You cannot steal from yourself.',
+            ephemeral: true
+        });
+    }
+
+    const targetData = users[targetUser.id] || {};
+    const targetCurrency = targetData.currency || 0;
+
+    if (targetCurrency <= 0) {
+        return context.reply({
+            content: 'The target user has no money to steal.',
+            ephemeral: true
+        });
+    }
+
+    const stealAmount = Math.floor(Math.random() * Math.min(500, targetCurrency)) + 1;
+    const successChance = 0.5; // 50% chance to succeed
+    const isSuccess = Math.random() < successChance;
+
+    if (isSuccess) {
+        users[userId] = {
+            ...userData,
+            currency: currency + stealAmount
+        };
+        users[targetUser.id] = {
+            ...targetData,
+            currency: targetCurrency - stealAmount
+        };
+        await db.set('users', users);
+        return context.reply({
+            content: `You successfully stole **$${stealAmount.toLocaleString()}** from ${targetUser.username}!`
+        });
+    } else {
+        const penaltyAmount = Math.floor(stealAmount / 2);
+        users[userId] = {
+            ...userData,
+            currency: Math.max(0, currency - penaltyAmount)
+        };
+        await db.set('users', users);
+        return context.reply({
+            content: `You got caught trying to steal from ${targetUser.username} and lost **$${penaltyAmount.toLocaleString()}** as a penalty!`
+        });
+    }
 }
 
 module.exports = {
@@ -3479,5 +3538,6 @@ module.exports = {
     handleConfigModal,
     unequip_technique,
     work,
-    switch_work
+    switch_work,
+    steal
 };

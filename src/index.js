@@ -62,7 +62,8 @@ const {
     handleConfigModal,
     unequip_technique,
     work,
-    switch_work
+    switch_work,
+    steal
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -519,6 +520,23 @@ const commandDefinitions = [
         .setName('switch_work')
         .setDescription('Switch to a different job.')
         .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('steal')
+        .setDescription('Steal money from another user.')
+        .setContexts(0, 1, 2)
+        .addUserOption(option =>
+            option
+            .setName('target')
+            .setDescription('The user to steal from.')
+            .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option
+            .setName('amount')
+            .setDescription('The amount of money to steal.')
+            .setRequired(true)
+        )
         .toJSON()
 ];
 
@@ -702,6 +720,10 @@ const commandHandlers = {
     switch_work: {
         execute: switch_work,
         cooldown: 1800000 // 30 minute cooldown to prevent abuse, since this gives money and has no prerequisites
+    },
+    steal: {
+        execute: steal,
+        cooldown: 300000 // 5 minute cooldown to prevent abuse, since this gives money and has no prerequisites
     }
 };
 
