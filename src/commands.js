@@ -2001,7 +2001,9 @@ async function equip_technique(context) {
     const ownedSet = new Set(userTechniques);
     const collections = allCollections
         .map(collection => ({
-            ...collection,
+            id: collection.id,
+            name: collection.name,
+            description: collection.description || '',
             ownedTechniques: collection.techniques.filter(t => ownedSet.has(t.id))
         }))
         .filter(collection => collection.ownedTechniques.length > 0);
@@ -2029,7 +2031,7 @@ async function equip_technique(context) {
     await context.reply({ embeds: [embed], components: [row] });
 
     const collectionFilter = i => i.user.id === context.user.id && i.customId === 'equip_technique_collection';
-    const collectionCollector = context.channel.createMessageComponentCollector({ filter: collectionFilter, time: 60000, max: 1 });
+    const collectionCollector = context.channel.createMessageComponentCollector({ filter: collectionFilter, componentType: ComponentType.StringSelect, time: 60000, max: 1 });
 
     collectionCollector.on('collect', async interaction => {
         const collectionId = interaction.values[0];
@@ -2061,7 +2063,7 @@ async function equip_technique(context) {
         await interaction.update({ embeds: [techniqueEmbed], components: [techniqueRow] });
 
         const itemFilter = i2 => i2.user.id === context.user.id && i2.customId === 'equip_technique_item';
-        const itemCollector = context.channel.createMessageComponentCollector({ filter: itemFilter, time: 60000, max: 1 });
+        const itemCollector = context.channel.createMessageComponentCollector({ filter: itemFilter, componentType: ComponentType.StringSelect, time: 60000, max: 1 });
 
         itemCollector.on('collect', async interaction2 => {
             const selectedTechniqueId = interaction2.values[0];
@@ -2965,20 +2967,106 @@ async function unequip_technique(context) {
         return context.reply({ content: 'You have no technique equipped.', ephemeral: true });
     }
 
-    const allTechniques = CommandContext.getTechniqueData().flatMap(collection => collection.techniques);
-    const equippedTechnique = allTechniques.find(tech => tech.id === equippedTechniqueId);
+    const allCollections = CommandContext.getTechniqueData();
+    const equippedCollections = allCollections
+        .map(collection => ({
+            id: collection.id,
+            name: collection.name,
+            equippedTechniques: collection.techniques.filter(t => t.id === equippedTechniqueId)
+        }))
+        .filter(collection => collection.equippedTechniques.length > 0);
 
-    if (users[userId]) {
-        if (users[userId].equipped) {
-            delete users[userId].equipped.technique;
-            if (Object.keys(users[userId].equipped).length === 0) {
-                users[userId].equipped = {};
-            }
-        }
-        await db.set('users', users);
+    if (!equippedCollections.length) {
+        return context.reply({ content: 'No equipped techniques could be found.', ephemeral: true });
     }
 
-    return context.reply({ content: `Unequipped **${equippedTechnique?.name || equippedTechniqueId}**.`, ephemeral: true });
+    const collectionOptions = equippedCollections.map(collection => ({
+        label: collection.name,
+        description: `${collection.equippedTechniques.length} equipped technique${collection.equippedTechniques.length === 1 ? '' : 's'}`,
+        value: collection.id
+    }));
+
+    const collectionSelect = new StringSelectMenuBuilder()
+        .setCustomId('unequip_technique_collection')
+        .setPlaceholder('Select a collection with equipped techniques')
+        .addOptions(collectionOptions);
+
+    const row = new ActionRowBuilder().addComponents(collectionSelect);
+    const embed = new EmbedBuilder()
+        .setTitle(`${context.formatName()}'s Equipped Techniques`)
+        .setDescription('Choose a collection to see the equipped techniques you can unequip.');
+
+    await context.reply({ embeds: [embed], components: [row], ephemeral: true });
+
+    const collectionFilter = i => i.user.id === context.user.id && i.customId === 'unequip_technique_collection';
+    const collectionCollector = context.channel.createMessageComponentCollector({ filter: collectionFilter, componentType: ComponentType.StringSelect, time: 60000, max: 1 });
+
+    collectionCollector.on('collect', async interaction => {
+        const collectionId = interaction.values[0];
+        const selectedCollection = equippedCollections.find(collection => collection.id === collectionId);
+        if (!selectedCollection) {
+            return interaction.reply({ content: 'Collection not found.', ephemeral: true });
+        }
+
+        const techniqueOptions = selectedCollection.equippedTechniques.map(tech => ({
+            label: tech.name,
+            description: (tech.effect || tech.description || 'Equipped technique').substring(0, 100),
+            value: tech.id
+        }));
+
+        const techniqueSelect = new StringSelectMenuBuilder()
+            .setCustomId('unequip_technique_item')
+            .setPlaceholder('Select a technique to unequip')
+            .addOptions(techniqueOptions);
+
+        const techniqueRow = new ActionRowBuilder().addComponents(techniqueSelect);
+        const techniqueEmbed = new EmbedBuilder()
+            .setTitle(`🗂️ ${selectedCollection.name}`)
+            .setDescription('Choose an equipped technique to unequip.');
+
+        await interaction.update({ embeds: [techniqueEmbed], components: [techniqueRow] });
+
+        const itemFilter = i2 => i2.user.id === context.user.id && i2.customId === 'unequip_technique_item';
+        const itemCollector = context.channel.createMessageComponentCollector({ filter: itemFilter, componentType: ComponentType.StringSelect, time: 60000, max: 1 });
+
+        itemCollector.on('collect', async interaction2 => {
+            const selectedTechniqueId = interaction2.values[0];
+            const selectedTech = selectedCollection.equippedTechniques.find(tech => tech.id === selectedTechniqueId);
+            if (!selectedTech) {
+                return interaction2.reply({ content: 'Technique not found.', ephemeral: true });
+            }
+
+            if (users[userId]?.equipped) {
+                delete users[userId].equipped.technique;
+                if (Object.keys(users[userId].equipped).length === 0) {
+                    users[userId].equipped = {};
+                }
+            }
+            await db.set('users', users);
+
+            await interaction2.update({ content: `Unequipped **${selectedTech.name}**.`, embeds: [], components: [] });
+        });
+
+        itemCollector.on('end', async collected => {
+            if (collected.size === 0) {
+                try {
+                    await interaction.editReply({ content: 'No technique selected.', embeds: [], components: [] });
+                } catch (error) {
+                    // ignore if message already updated or unavailable
+                }
+            }
+        });
+    });
+
+    collectionCollector.on('end', async collected => {
+        if (collected.size === 0) {
+            try {
+                await context.editReply({ content: 'No collection selected.', embeds: [], components: [] });
+            } catch (error) {
+                // ignore when reply cannot be edited
+            }
+        }
+    });
 }
 
 module.exports = {
