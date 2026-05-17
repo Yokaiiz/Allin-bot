@@ -2903,6 +2903,62 @@ async function handleConfigModal(interaction) {
     await interaction.reply({ content: replyText, ephemeral: true });
 }
 
+async function unequip_technique(context) {
+    const userId = context.user.id;
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userData = users[userId] || {};
+    const equippedTechniques = userData.equippedTechniques || [];
+
+    if (equippedTechniques.length === 0) {
+        return context.reply({ content: 'You have no techniques equipped.', ephemeral: true });
+    }
+
+    const techniqueOptions = equippedTechniques.map((tech, index) => ({
+        label: tech.name,
+        description: `Damage: ${tech.damage || 5}`,
+        value: index.toString()
+    }));
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('unequip_technique_select')
+        .setPlaceholder('Select a technique to unequip')
+        .addOptions(techniqueOptions);
+    
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    await context.reply({ content: 'Select a technique to unequip:', components: [row], ephemeral: true });
+
+    const message = await context.fetchReply();
+
+    const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        filter: i => i.user.id === context.user.id,
+        time: 60000
+    });
+
+    collector.on('collect', async interaction => {
+        const selectedIndex = parseInt(interaction.values[0]);
+        const unequippedTech = equippedTechniques[selectedIndex];
+        if (!unequippedTech) {
+            return interaction.reply({ content: 'Invalid selection.', ephemeral: true });
+        }
+        equippedTechniques.splice(selectedIndex, 1);
+        users[userId] = {
+            ...userData,
+            equippedTechniques
+        };
+        await db.set('users', users);
+        await interaction.update({ content: `Unequipped **${unequippedTech.name}**.`, components: [] });
+        collector.stop();
+    });
+
+    collector.on('end', async () => {
+        try { await message.edit({ components: [] }); } catch {}
+    });
+}
+
 module.exports = {
     ping,
     help,
@@ -2946,5 +3002,6 @@ module.exports = {
     poke,
     roleplayfight,
     config,
-    handleConfigModal
+    handleConfigModal,
+    unequip_technique
 };

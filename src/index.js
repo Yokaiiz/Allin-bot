@@ -59,7 +59,8 @@ const {
     poke,
     roleplayfight,
     config,
-    handleConfigModal
+    handleConfigModal,
+    unequip_technique
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -501,6 +502,11 @@ const commandDefinitions = [
         .setName('config')
         .setDescription('Configure bot settings for this server.')
         .setContexts(0)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('unequip_technique')
+        .setDescription('Unequip a technique.')
+        .setContexts(0, 1, 2)
         .toJSON()
 ];
 
@@ -672,6 +678,10 @@ const commandHandlers = {
     config: {
         execute: config,
         cooldown: 1000
+    },
+    unequip_technique: {
+        execute: unequip_technique,
+        cooldown: 5000
     }
 };
 
