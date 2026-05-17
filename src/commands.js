@@ -3477,7 +3477,7 @@ async function steal(context) {
         };
         await db.set('users', users);
         return context.reply({
-            content: `You successfully stole **$${stealAmount.toLocaleString()}** from ${targetUser.username}!`
+            content: `You successfully stole **$${stealAmount.toLocaleString()}** from <@${targetUser.id}>!`
         });
     } else {
         const penaltyAmount = Math.floor(stealAmount / 2);
@@ -3487,7 +3487,7 @@ async function steal(context) {
         };
         await db.set('users', users);
         return context.reply({
-            content: `You got caught trying to steal from ${targetUser.username} and lost **$${penaltyAmount.toLocaleString()}** as a penalty!`
+            content: `You got caught trying to steal from <@${targetUser.id}> and lost **$${penaltyAmount.toLocaleString()}** as a penalty!`
         });
     }
 }
