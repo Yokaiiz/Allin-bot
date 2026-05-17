@@ -2334,13 +2334,13 @@ async function fight(context) {
                     fightLog.push('🩸 The boss is weakened and vulnerable to the next attack.');
                 }
                 if (technique.effect === 'awakening') {
-                    damage *= 0.5;
-                    fightLog.push('Ultimate awakening unleashed, you have received a massive power boost.')
+                    damage *= 1.5;
+                    fightLog.push('Ultimate awakening unleashed, you have received a massive power boost.');
                 }
                 if (technique.effect === 'hollowification') {
-                    damage *= 0.25;
+                    damage *= 1.25;
                     playerHp += 50;
-                    fightLog.push('You have been hollowified, increasing your damage by 25% and health by 50 points.')
+                    fightLog.push('You have been hollowified, increasing your damage by 25% and health by 50 points.');
                 }
                 if (technique.effect === 'cero_blast') {
                     damage *= 2.0;
