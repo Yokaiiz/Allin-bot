@@ -60,7 +60,8 @@ const {
     roleplayfight,
     config,
     handleConfigModal,
-    unequip_technique
+    unequip_technique,
+    work
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -507,6 +508,11 @@ const commandDefinitions = [
         .setName('unequip_technique')
         .setDescription('Unequip a technique.')
         .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('work')
+        .setDescription('Go to work and earn some money.')
+        .setContexts(0, 1, 2)
         .toJSON()
 ];
 
@@ -682,6 +688,10 @@ const commandHandlers = {
     unequip_technique: {
         execute: unequip_technique,
         cooldown: 5000
+    },
+    work: {
+        execute: work,
+        cooldown: 1800000 // 30 minute cooldown to prevent abuse, since this gives money and has no prerequisites
     }
 };
 

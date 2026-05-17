@@ -1,4 +1,4 @@
-const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, resolveColor } = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonStyle, ComponentType, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, resolveColor, SlashCommandBuilder } = require("discord.js");
 const { getDBInstance, autoRegUser } = require('./db.js');
 const roleplayGifs = require('./roleplay_gifs.json');
 const fs = require('fs');
@@ -3117,6 +3117,126 @@ async function unequip_technique(context) {
     });
 }
 
+async function work(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const userData = users[userId] || {};
+    const currency = userData.currency || 0;
+    
+
+    const stringselectmenu = new StringSelectMenuBuilder()
+    .setCustomId('work_select')
+    .setPlaceholder('Choose a job to work')
+    .addOptions([
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Cashier')
+            .setValue('cashier')
+            .setDescription('Work as a cashier at the local store.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Delivery Driver')
+            .setValue('delivery_driver')
+            .setDescription('Work as a delivery driver for a food delivery service.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Freelance Developer')
+            .setValue('freelance_developer')
+            .setDescription('Work as a freelance developer, completing coding tasks for clients.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Graphic Designer')
+            .setValue('graphic_designer')
+            .setDescription('Work as a graphic designer, creating designs for clients.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Content Writer')
+            .setValue('content_writer')
+            .setDescription('Work as a content writer, creating articles and blog posts for clients.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Teacher')
+            .setValue('teacher')
+            .setDescription('Work as a teacher, educating students in a classroom setting.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Software Engineer')
+            .setValue('software_engineer')
+            .setDescription('Work as a software engineer, developing software applications for a company.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Doctor')
+            .setValue('doctor')
+            .setDescription('Work as a doctor, providing medical care to patients.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Chef')
+            .setValue('chef')
+            .setDescription('Work as a chef, preparing meals in a restaurant kitchen.'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Musician')
+            .setValue('musician')
+            .setDescription('Work as a musician, performing music for audiences or recording in a studio.')
+    ])
+
+    const row = new ActionRowBuilder().addComponents(stringselectmenu);
+    const embed = new EmbedBuilder()
+        .setTitle('Work')
+        .setDescription('Choose a job to work and earn some money!')
+        .setColor('Green');
+    await context.reply({ embeds: [embed], components: [row], ephemeral: true });
+
+    const filter = i => i.user.id === context.user.id && i.customId === 'work_select';
+    const collector = context.channel.createMessageComponentCollector({ filter, componentType: ComponentType.StringSelect, time: 60000, max: 1 });
+    collector.on('collect', async interaction => {
+        const job = interaction.values[0];
+        let earnings = 0;
+        switch (job) {
+            case 'cashier':
+                earnings = Math.floor(Math.random() * 100) + 50;
+                break;
+            case 'delivery_driver':
+                earnings = Math.floor(Math.random() * 150) + 75;
+                break;
+            case 'freelance_developer':
+                earnings = Math.floor(Math.random() * 300) + 150;
+                break;
+            case 'graphic_designer':
+                earnings = Math.floor(Math.random() * 250) + 125;
+                break;
+            case 'content_writer':
+                earnings = Math.floor(Math.random() * 200) + 100;
+                break;
+            case 'teacher':
+                earnings = Math.floor(Math.random() * 400) + 200;
+                break;
+            case 'software_engineer':
+                earnings = Math.floor(Math.random() * 500) + 250;
+                break;
+            case 'doctor':
+                earnings = Math.floor(Math.random() * 600) + 300;
+                break;
+            case 'chef':
+                earnings = Math.floor(Math.random() * 150) + 75;
+                break;
+            case 'musician':
+                earnings = Math.floor(Math.random() * 350) + 175;
+                break;
+            default:
+                earnings = 0;
+        }
+        users[userId] = {
+            ...userData,
+            currency: currency + earnings
+        };
+        await db.set('users', users);
+
+        await interaction.update({ content: `You worked as a ${job.replace('_', ' ')} and earned $${earnings.toLocaleString()}! Your new balance is $${(currency + earnings).toLocaleString()}.`, embeds: [], components: [] });
+    });
+
+    collector.on('end', async collected => {
+        if (collected.size === 0) {
+            try {
+                await context.editReply({ content: 'No job selected.', embeds: [], components: [] });
+            } catch (error) {
+                // ignore when reply cannot be edited
+            }
+        }
+    });
+}
+
 module.exports = {
     ping,
     help,
@@ -3161,5 +3281,6 @@ module.exports = {
     roleplayfight,
     config,
     handleConfigModal,
-    unequip_technique
+    unequip_technique,
+    work
 };
