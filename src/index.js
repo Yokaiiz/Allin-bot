@@ -531,12 +531,6 @@ const commandDefinitions = [
             .setDescription('The user to steal from.')
             .setRequired(true)
         )
-        .addIntegerOption(option =>
-            option
-            .setName('amount')
-            .setDescription('The amount of money to steal.')
-            .setRequired(true)
-        )
         .toJSON()
 ];
 
