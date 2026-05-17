@@ -2073,6 +2073,12 @@ async function equip_technique(context) {
             }
 
             users[userId] = users[userId] || {};
+            if (!Array.isArray(users[userId].equippedTechniques)) {
+                users[userId].equippedTechniques = [];
+            }
+            if (!users[userId].equippedTechniques.includes(selectedTech.id)) {
+                users[userId].equippedTechniques.push(selectedTech.id);
+            }
             users[userId].equipped = { technique: selectedTech.id };
             await db.set('users', users);
 
