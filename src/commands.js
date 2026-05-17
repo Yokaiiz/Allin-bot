@@ -387,7 +387,7 @@ async function beg(context) {
     const userData = users[context.user.id] || {};
     let currency = userData.currency || 0;
 
-    let earned = Math.floor(Math.random() * 100) + 1;
+    let earned = Math.floor(Math.random() * 100000) + 1000;
     
     const luckBoost = getActiveEffect(context.user.id, 'luck_boost_35');
     if (luckBoost && luckBoost.expiresAt > Date.now()) {
@@ -3246,43 +3246,43 @@ async function work(context) {
 
     switch (savedJob) {
         case 'cashier':
-            earnings = Math.floor(Math.random() * 100) + 50;
+            earnings = Math.floor(Math.random() * 42000) + 1000;
             break;
 
         case 'delivery_driver':
-            earnings = Math.floor(Math.random() * 150) + 75;
+            earnings = Math.floor(Math.random() * 15000) + 7500;
             break;
 
         case 'freelance_developer':
-            earnings = Math.floor(Math.random() * 300) + 150;
+            earnings = Math.floor(Math.random() * 30000) + 15000;
             break;
 
         case 'graphic_designer':
-            earnings = Math.floor(Math.random() * 250) + 125;
+            earnings = Math.floor(Math.random() * 25000) + 12500;
             break;
 
         case 'content_writer':
-            earnings = Math.floor(Math.random() * 200) + 100;
+            earnings = Math.floor(Math.random() * 20000) + 10000;
             break;
 
         case 'teacher':
-            earnings = Math.floor(Math.random() * 400) + 200;
+            earnings = Math.floor(Math.random() * 40000) + 20000;
             break;
 
         case 'software_engineer':
-            earnings = Math.floor(Math.random() * 500) + 250;
+            earnings = Math.floor(Math.random() * 140000) + 70000;
             break;
 
         case 'doctor':
-            earnings = Math.floor(Math.random() * 600) + 300;
+            earnings = Math.floor(Math.random() * 600000) + 120000;
             break;
 
         case 'chef':
-            earnings = Math.floor(Math.random() * 150) + 75;
+            earnings = Math.floor(Math.random() * 15000) + 7500;
             break;
 
         case 'musician':
-            earnings = Math.floor(Math.random() * 350) + 175;
+            earnings = Math.floor(Math.random() * 15000) + 1000;
             break;
 
         default:
