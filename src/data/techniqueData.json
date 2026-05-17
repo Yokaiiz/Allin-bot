@@ -77,7 +77,7 @@
                 "id": "bankai_tensa_zangetsu",
                 "description": "You enter your bankai state, increasing your ATK by 50% for 3 turns and dealing 200% of your ATK as damage to all enemies in a straight line.",
                 "cooldown": 30,
-                "damage": 500,
+                "damage": 1,
                 "price": 10000,
                 "effect": "awakening"
             },
@@ -86,7 +86,7 @@
                 "id": "hollow_mask",
                 "description": "You don your hollow mask, increasing your ATK by 25% for 3 turns and dealing 150% of your ATK as damage to all enemies in a straight line.",
                 "cooldown": 20,
-                "damage": 300,
+                "damage": 1,
                 "price": 7500,
                 "effect": "hollowification"
             },

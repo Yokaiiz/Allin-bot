@@ -2149,7 +2149,12 @@ async function fight(context) {
         i_am_atomic: 'https://i.pinimg.com/originals/38/6a/5f/386a5f8769d7e14aa82aed01b7c79fd2.gif',
         blitz_strike: 'https://i.pinimg.com/originals/5a/c6/0f/5ac60f2acefa69fc31922a91ea18f900.gif',
         belittling_slashes: 'https://i.pinimg.com/originals/b1/60/84/b16084584c43359ff8405a240f3afd3e.gif',
-        horse_kick: 'https://i.pinimg.com/originals/7a/71/34/7a7134154a2cff4a2ed82ff344593a8d.gif'
+        horse_kick: 'https://i.pinimg.com/originals/7a/71/34/7a7134154a2cff4a2ed82ff344593a8d.gif',
+        getsuga_tenshou: 'https://i.pinimg.com/originals/2c/7e/27/2c7e27a8a59cc835d40921b5f15d68a4.gif',
+        getsuga_juujinshou: 'https://i.makeagif.com/media/9-06-2023/4OfNs1.gif',
+        bankai_tensa_zangetsu: 'https://i.pinimg.com/originals/88/85/3e/88853e93465b2af5e21cb53c1db57968.gif',
+        hollow_mask: 'https://i.pinimg.com/originals/e1/38/0a/e1380ac430050c83e1a832c87a474e54.gif',
+        cero: 'https://i.pinimg.com/originals/4c/2c/f7/4c2cf79cc1890c25883ec47733ca192b.gif'
     };
 
     const bosses = [
