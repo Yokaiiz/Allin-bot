@@ -186,7 +186,7 @@ async function help(context) {
                 },
                 {
                     name: 'Economy Commands',
-                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person\n`/unuequip_technique` - unequip a technique that you have equipped so you can equip another one in its place.'
+                    value: '`/profile` - Displays your profile information.\n`/beg` - Beg for money.\n`/gamble <amount>` - Gamble your money.\n`/daily` - Claim your daily reward.\n`/inv` - Displays your inventory.\n`/use <item>` - Uses an item from your inventory.\n`/shop` - Displays the shop.\n`/coinflip <side> <amount>` - Flip a coin and bet on the outcome.\n`/technique_shop` - buy techniques that you can utilise in fights!\n`/equip_technique` - Equip the techniques youve bought so you can use them in fights!\n`/fight` - Fight a random boss with your moves for rewards (WIP)\n`/donate` - Donate whatever amounnt of money that you want to another person\n`/unuequip_technique` - unequip a technique that you have equipped so you can equip another one in its place.\n`/work` - Work a job to earn some money (WIP).\n`/switch_work` - Switch to a different job.'
                 },
                 {
                     name: 'Roleplay Commands',
@@ -3311,6 +3311,128 @@ async function work(context) {
     });
 }
 
+async function switch_work(context) {
+    const db = await getDBInstance();
+    const users = db.get('users') || {};
+    const userId = context.user.id;
+    const userData = users[userId] || {};
+    const currentJob = userData.job;
+
+    if (!currentJob) {
+        return context.reply({
+            content: 'You do not have a job to switch from. Use `/work` to select a job first.',
+            ephemeral: true
+        });
+    }
+
+    const stringselectmenu = new StringSelectMenuBuilder()
+        .setCustomId('switch_work_select')
+        .setPlaceholder('Choose a new job')
+        .addOptions([
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Cashier')
+                .setValue('cashier')
+                .setDescription('Work as a cashier at the local store.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Delivery Driver')
+                .setValue('delivery_driver')
+                .setDescription('Deliver food to customers.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Freelance Developer')
+                .setValue('freelance_developer')
+                .setDescription('Complete coding tasks for clients.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Graphic Designer')
+                .setValue('graphic_designer')
+                .setDescription('Create designs for clients.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Content Writer')
+                .setValue('content_writer')
+                .setDescription('Write articles and blog posts.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Teacher')
+                .setValue('teacher')
+                .setDescription('Teach students in a classroom.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Software Engineer')
+                .setValue('software_engineer')
+                .setDescription('Develop software applications.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Doctor')
+                .setValue('doctor')
+                .setDescription('Provide medical care to patients.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Chef')
+                .setValue('chef')
+                .setDescription('Prepare meals in a restaurant.'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Musician')
+                .setValue('musician')
+                .setDescription('Perform music for audiences.')
+        ]);
+
+    const row = new ActionRowBuilder().addComponents(stringselectmenu);
+    const embed = new EmbedBuilder()
+        .setTitle('Switch Your Job')
+        .setDescription(`Your current job is **${currentJob.replace(/_/g, ' ')}**. Select a new job to switch to.`)
+        .setColor('Green');
+    await context.reply({
+        embeds: [embed],
+        components: [row],
+        ephemeral: true
+    });
+
+    const filter = i =>
+        i.user.id === context.user.id &&
+        i.customId === 'switch_work_select';
+    const collector = context.channel.createMessageComponentCollector({
+        filter,
+        componentType: ComponentType.StringSelect,
+        time: 60000,
+        max: 1
+    });
+
+    collector.on('collect', async interaction => {
+        const newJob = interaction.values[0];
+        if (newJob === currentJob) {
+            return interaction.update({
+                content: `You are already a **${currentJob.replace(/_/g, ' ')}**. Please select a different job to switch to.`,
+                embeds: [],
+                components: []
+            });
+        }
+
+        users[userId] = {
+            ...userData,
+            job: newJob
+        };
+        await db.set('users', users);
+
+        await interaction.update({
+            content: `Your job has been switched to **${newJob.replace(/_/g, ' ')}**. Use \`/work\` again to start earning money with your new job.`,
+            embeds: [],
+            components: []
+        });
+    });
+
+    collector.on('end', async collected => {
+        if (collected.size === 0) {
+            try {
+                await context.editReply({
+                    content: 'No job selected.',
+                    embeds: [],
+                    components: []
+                });
+            }
+            catch (error) {
+                // Ignore edit errors
+            }
+        }});
+
+        
+
+}
+
 module.exports = {
     ping,
     help,
@@ -3356,5 +3478,6 @@ module.exports = {
     config,
     handleConfigModal,
     unequip_technique,
-    work
+    work,
+    switch_work
 };

@@ -61,7 +61,8 @@ const {
     config,
     handleConfigModal,
     unequip_technique,
-    work
+    work,
+    switch_work
 } = require("./commands.js");
 const { CommandContext } = require("./commandContext.js");
 const { getDBInstance, autoRegUser } = require("./db.js");
@@ -512,6 +513,11 @@ const commandDefinitions = [
     new SlashCommandBuilder()
         .setName('work')
         .setDescription('Go to work and earn some money.')
+        .setContexts(0, 1, 2)
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('switch_work')
+        .setDescription('Switch to a different job.')
         .setContexts(0, 1, 2)
         .toJSON()
 ];
