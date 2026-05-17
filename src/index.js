@@ -698,6 +698,10 @@ const commandHandlers = {
     work: {
         execute: work,
         cooldown: 1800000 // 30 minute cooldown to prevent abuse, since this gives money and has no prerequisites
+    },
+    switch_work: {
+        execute: switch_work,
+        cooldown: 1800000 // 30 minute cooldown to prevent abuse, since this gives money and has no prerequisites
     }
 };
 
