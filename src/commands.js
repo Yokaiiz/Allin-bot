@@ -2121,17 +2121,28 @@ async function fight(context) {
     const users = db.get('users') || {};
     const userId = context.user.id;
     const user = users[userId];
-    const equippedTechniqueId = user?.equipped?.technique;
 
-    if (!user || !equippedTechniqueId) {
+    const equippedTechniqueIds = [];
+    if (Array.isArray(user?.equippedTechniques)) {
+        equippedTechniqueIds.push(...user.equippedTechniques.map(item => typeof item === 'string' ? item : item?.id).filter(Boolean));
+    }
+    if (Array.isArray(user?.equipped?.techniques)) {
+        equippedTechniqueIds.push(...user.equipped.techniques.map(item => typeof item === 'string' ? item : item?.id).filter(Boolean));
+    }
+    if (typeof user?.equipped?.technique === 'string') {
+        equippedTechniqueIds.push(user.equipped.technique);
+    }
+
+    const uniqueEquippedTechniqueIds = [...new Set(equippedTechniqueIds)];
+    if (!user || uniqueEquippedTechniqueIds.length === 0) {
         return context.reply({ content: "You have no technique equipped!" });
     }
 
     const allTechniques = CommandContext.getTechniqueData().flatMap(g => g.techniques);
-    const playerTechniques = allTechniques.filter(t => t.id === equippedTechniqueId);
+    const playerTechniques = allTechniques.filter(t => uniqueEquippedTechniqueIds.includes(t.id));
 
     if (playerTechniques.length === 0) {
-        return context.reply({ content: "Your equipped technique could not be found." });
+        return context.reply({ content: "Your equipped technique(s) could not be found." });
     }
 
     const techniqueGifMap = {
@@ -2968,9 +2979,21 @@ async function unequip_technique(context) {
     const db = await getDBInstance();
     const users = db.get('users') || {};
     const userData = users[userId] || {};
-    const equippedTechniqueId = userData.equipped?.technique;
 
-    if (!equippedTechniqueId) {
+    const equippedTechniqueIds = [];
+    if (Array.isArray(userData.equippedTechniques)) {
+        equippedTechniqueIds.push(...userData.equippedTechniques.map(item => typeof item === 'string' ? item : item?.id).filter(Boolean));
+    }
+    if (Array.isArray(userData.equipped?.techniques)) {
+        equippedTechniqueIds.push(...userData.equipped.techniques.map(item => typeof item === 'string' ? item : item?.id).filter(Boolean));
+    }
+    if (typeof userData.equipped?.technique === 'string') {
+        equippedTechniqueIds.push(userData.equipped.technique);
+    }
+
+    const uniqueEquippedTechniqueIds = [...new Set(equippedTechniqueIds)];
+
+    if (!uniqueEquippedTechniqueIds.length) {
         return context.reply({ content: 'You have no technique equipped.', ephemeral: true });
     }
 
@@ -2979,7 +3002,7 @@ async function unequip_technique(context) {
         .map(collection => ({
             id: collection.id,
             name: collection.name,
-            equippedTechniques: collection.techniques.filter(t => t.id === equippedTechniqueId)
+            equippedTechniques: collection.techniques.filter(t => uniqueEquippedTechniqueIds.includes(t.id))
         }))
         .filter(collection => collection.equippedTechniques.length > 0);
 
@@ -3043,11 +3066,24 @@ async function unequip_technique(context) {
                 return interaction2.reply({ content: 'Technique not found.', ephemeral: true });
             }
 
-            if (users[userId]?.equipped) {
-                delete users[userId].equipped.technique;
-                if (Object.keys(users[userId].equipped).length === 0) {
-                    users[userId].equipped = {};
+            const removeTechniqueId = selectedTechniqueId;
+            if (Array.isArray(users[userId]?.equippedTechniques)) {
+                users[userId].equippedTechniques = users[userId].equippedTechniques.filter(id => (typeof id === 'string' ? id : id?.id) !== removeTechniqueId);
+                if (users[userId].equippedTechniques.length === 0) {
+                    delete users[userId].equippedTechniques;
                 }
+            }
+            if (Array.isArray(users[userId]?.equipped?.techniques)) {
+                users[userId].equipped.techniques = users[userId].equipped.techniques.filter(id => (typeof id === 'string' ? id : id?.id) !== removeTechniqueId);
+                if (users[userId].equipped.techniques.length === 0) {
+                    delete users[userId].equipped.techniques;
+                }
+            }
+            if (users[userId]?.equipped?.technique === removeTechniqueId) {
+                delete users[userId].equipped.technique;
+            }
+            if (users[userId]?.equipped && Object.keys(users[userId].equipped).length === 0) {
+                delete users[userId].equipped;
             }
             await db.set('users', users);
 
