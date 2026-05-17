@@ -2115,16 +2115,17 @@ async function fight(context) {
     const users = db.get('users') || {};
     const userId = context.user.id;
     const user = users[userId];
+    const equippedTechniqueId = user?.equipped?.technique;
 
-    if (!user || !user.techniques || user.techniques.length === 0) {
-        return context.reply({ content: "You haven't unlocked any techniques!" });
+    if (!user || !equippedTechniqueId) {
+        return context.reply({ content: "You have no technique equipped!" });
     }
 
     const allTechniques = CommandContext.getTechniqueData().flatMap(g => g.techniques);
-    const playerTechniques = allTechniques.filter(t => user.techniques.includes(t.id));
+    const playerTechniques = allTechniques.filter(t => t.id === equippedTechniqueId);
 
     if (playerTechniques.length === 0) {
-        return context.reply({ content: "Your techniques could not be found." });
+        return context.reply({ content: "Your equipped technique could not be found." });
     }
 
     const techniqueGifMap = {
